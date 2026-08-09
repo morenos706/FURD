@@ -4,6 +4,7 @@ use App\Models\Catalog;
 
 $statusLabels = ['abierto' => 'Abierto', 'asignado' => 'Asignado', 'en_atencion' => 'En Atencion', 'pendiente_aprobacion' => 'Pendiente de Aprobacion', 'cerrado' => 'Cerrado'];
 ?>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <form method="get" class="filter-bar row g-2 align-items-end">
   <div class="col-6 col-md-2">
     <label class="form-label small mb-1">Rango rapido</label>
@@ -131,6 +132,19 @@ $statusLabels = ['abierto' => 'Abierto', 'asignado' => 'Asignado', 'en_atencion'
   </div>
 </div>
 
+<div class="row g-3 mb-3">
+  <div class="col-12">
+    <div class="section-card">
+      <div class="section-title">Mapa de Calor de Emergencias (por ubicacion)</div>
+      <?php if (empty($heatPoints)): ?>
+        <div class="empty-state"><i class="bi bi-geo-alt"></i>Todavia no hay casos con coordenadas registradas. Los casos nuevos que marquen el punto en el mapa (pestaña Ubicacion) van a aparecer aca.</div>
+      <?php else: ?>
+        <div id="heatMap" style="height:380px;border-radius:.5rem;"></div>
+      <?php endif; ?>
+    </div>
+  </div>
+</div>
+
 <div class="section-card">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div class="section-title mb-0">Casos recientes</div>
@@ -160,9 +174,12 @@ $statusLabels = ['abierto' => 'Abierto', 'asignado' => 'Asignado', 'en_atencion'
 </div>
 
 <?php
-$extraScripts = '<script>
+$extraScripts = (!empty($heatPoints) ? '<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>' : '') . '
+<script>
 const dashboardData = ' . json_encode([
     'byMonth' => $byMonth, 'byStatus' => $byStatus, 'byService' => $byService, 'byComuna' => $byComuna,
+    'heatPoints' => array_map(fn($p) => [(float) $p['latitude'], (float) $p['longitude']], $heatPoints),
 ], JSON_UNESCAPED_UNICODE) . ';
 document.addEventListener("DOMContentLoaded", function () {
   const palette = ["#c0392b","#2c3e6b","#d69e2e","#1a936f","#7c3aed","#0d9488","#b45309","#475569","#e74c3c","#3498db"];
@@ -201,6 +218,20 @@ document.addEventListener("DOMContentLoaded", function () {
     },
     options: { plugins: { legend: { display: false } } }
   });
+
+  try {
+    const heatEl = document.getElementById("heatMap");
+    if (heatEl && window.L && window.L.heatLayer && dashboardData.heatPoints.length) {
+      const map = L.map("heatMap").setView(dashboardData.heatPoints[0], 12);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap", maxZoom: 19 }).addTo(map);
+      const bounds = L.latLngBounds(dashboardData.heatPoints);
+      map.fitBounds(bounds.pad(0.2));
+      L.heatLayer(dashboardData.heatPoints, { radius: 28, blur: 20, maxZoom: 15 }).addTo(map);
+      setTimeout(() => map.invalidateSize(), 300);
+    }
+  } catch (err) {
+    console.error("Error inicializando el mapa de calor:", err);
+  }
 });
 </script>';
 ?>

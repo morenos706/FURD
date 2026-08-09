@@ -23,6 +23,7 @@ class DashboardController
         $byStatus = $model->countByField('status', $filters, 5);
         $byComuna = $model->countByField('comuna', $filters, 10);
         $recent = $model->paginate($filters, 1, 8)['data'];
+        $heatPoints = $model->coordinates($filters);
 
         View::render('dashboard/index', [
             'pageTitle' => 'Dashboard',
@@ -35,6 +36,7 @@ class DashboardController
             'byStatus' => $byStatus,
             'byComuna' => $byComuna,
             'recent' => $recent,
+            'heatPoints' => $heatPoints,
             'filters' => $filters,
             'services' => Catalog::items('list_servicio'),
         ]);
@@ -53,6 +55,7 @@ class DashboardController
             'byService' => $model->countByField('service_type', $filters, 8),
             'byStatus' => $model->countByField('status', $filters, 5),
             'byComuna' => $model->countByField('comuna', $filters, 10),
+            'heatPoints' => $model->coordinates($filters),
         ]);
     }
 

@@ -520,6 +520,18 @@ class CaseRecord
         return $stmt->fetchAll();
     }
 
+    /** Coordenadas de los casos con ubicacion registrada, para el mapa de calor. */
+    public function coordinates(array $filters = []): array
+    {
+        [$whereSql, $params] = $this->buildFilters($filters);
+        $sql = "SELECT c.latitude, c.longitude, c.case_number, c.address
+                FROM cases c
+                WHERE $whereSql AND c.latitude IS NOT NULL AND c.longitude IS NOT NULL";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
     public function affectedTotals(array $filters = []): array
     {
         [$where1, $p1] = $this->buildFilters($filters, 'p1_');
