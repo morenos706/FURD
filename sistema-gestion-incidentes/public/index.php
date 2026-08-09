@@ -86,5 +86,6 @@ $router->get('/settings/catalogs', [new SettingsController(), 'catalogs']);
 $router->post('/settings/catalogs', [new SettingsController(), 'catalogsUpdate']);
 $router->post('/settings/catalogs/delete', [new SettingsController(), 'catalogsDelete']);
 $router->get('/settings/backup', [new SettingsController(), 'backupDownload']);
+$router->post('/settings/import-historical', [new SettingsController(), 'importHistorical']);
 
 $router->dispatch($_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI']);

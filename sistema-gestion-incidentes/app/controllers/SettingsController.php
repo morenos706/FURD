@@ -133,6 +133,52 @@ class SettingsController
         H::redirect('/settings/catalogs?list=' . urlencode($listName));
     }
 
+    /** Sube un Excel de Survey123/ArcGIS y lo importa como casos historicos. Opcionalmente borra todo antes. */
+    public function importHistorical(): void
+    {
+        $this->requireAdmin();
+        Csrf::verifyRequest();
+
+        if (empty($_FILES['import_file']) || $_FILES['import_file']['error'] !== UPLOAD_ERR_OK) {
+            H::flash('danger', 'Seleccione un archivo Excel (.xlsx) para importar.');
+            H::redirect('/settings');
+        }
+
+        $tmpName = $_FILES['import_file']['tmp_name'];
+        $mime = mime_content_type($tmpName) ?: '';
+        $allowedMimes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip', 'application/octet-stream'];
+        $extOk = str_ends_with(strtolower($_FILES['import_file']['name']), '.xlsx');
+        if (!$extOk || !in_array($mime, $allowedMimes, true)) {
+            H::flash('danger', 'El archivo debe ser un Excel .xlsx valido.');
+            H::redirect('/settings');
+        }
+
+        $wipe = (bool) H::input('wipe_before_import');
+
+        set_time_limit(600);
+        ini_set('memory_limit', '512M');
+
+        try {
+            $result = (new \App\Services\Survey123Importer())->import($tmpName, $wipe);
+        } catch (\Throwable $e) {
+            H::flash('danger', 'No se pudo importar el archivo: ' . $e->getMessage());
+            H::redirect('/settings');
+        }
+
+        AuditLog::record(Auth::id(), 'IMPORTAR_DATOS_HISTORICOS', 'cases', null, null, [
+            'imported' => $result['imported'], 'skipped' => $result['skipped'],
+            'errors' => count($result['errors']), 'wipe' => $wipe,
+        ]);
+
+        $msg = "Importacion completa: {$result['imported']} casos importados, {$result['skipped']} filas vacias omitidas.";
+        if ($result['errors']) {
+            $msg .= ' ' . count($result['errors']) . ' fila(s) con error (revise el formato de esas filas): '
+                . implode(' | ', array_slice($result['errors'], 0, 5));
+        }
+        H::flash($result['errors'] ? 'warning' : 'success', $msg);
+        H::redirect('/settings');
+    }
+
     public function backupDownload(): void
     {
         $this->requireAdmin();

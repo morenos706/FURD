@@ -53,11 +53,29 @@
   </div>
 
   <div class="col-lg-5">
-    <div class="section-card">
+    <div class="section-card mb-3">
       <div class="form-section-title">Copias de Seguridad</div>
       <p class="text-muted small">Genere y descargue una copia de seguridad completa de la base de datos.</p>
       <a href="<?= H::url('/settings/backup') ?>" class="btn btn-outline-secondary"><i class="bi bi-cloud-download"></i> Descargar Backup (.sql)</a>
       <div class="form-text mt-2">Requiere que <code>mysqldump</code> este disponible en el servidor. En hosting compartido, puede generar el respaldo desde phpMyAdmin.</div>
+    </div>
+
+    <div class="section-card" style="border-left:4px solid #c0392b;">
+      <div class="form-section-title"><i class="bi bi-file-earmark-excel me-1"></i>Importar Datos Historicos</div>
+      <p class="text-muted small mb-2">Suba el Excel exportado de Survey123/ArcGIS (hoja "survey_0") para cargar casos historicos. Se importan como casos <strong>cerrados</strong>.</p>
+      <form method="post" action="<?= H::url('/settings/import-historical') ?>" enctype="multipart/form-data" data-confirm="¿Importar el archivo? Esto puede tardar varios minutos, no cierre la pestaña.">
+        <?= Csrf::field() ?>
+        <div class="mb-2">
+          <input type="file" name="import_file" class="form-control form-control-sm" accept=".xlsx" required>
+        </div>
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" name="wipe_before_import" id="wipeBeforeImport" value="1">
+          <label class="form-check-label small text-danger" for="wipeBeforeImport">
+            Borrar todos los casos actuales antes de importar (irreversible)
+          </label>
+        </div>
+        <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-upload"></i> Importar Excel</button>
+      </form>
     </div>
   </div>
 </div>
