@@ -112,6 +112,8 @@ CREATE TABLE IF NOT EXISTS cases (
     signed_at           DATETIME DEFAULT NULL,
     sign_method         VARCHAR(20) DEFAULT NULL,   -- dibujo | foto | codigo
     signature_path      VARCHAR(255) DEFAULT NULL,
+    reviewed_by         INT DEFAULT NULL,    -- coordinador de turno
+    reviewed_at         DATETIME DEFAULT NULL,
     approved_by         INT DEFAULT NULL,    -- subcomandancia
     approved_at         DATETIME DEFAULT NULL,
     form_data           JSON DEFAULT NULL,   -- resto de los ~200 campos del FURD
@@ -126,6 +128,7 @@ CREATE TABLE IF NOT EXISTS cases (
     CONSTRAINT fk_cases_created_by FOREIGN KEY (created_by) REFERENCES users(id),
     CONSTRAINT fk_cases_assigned_to FOREIGN KEY (assigned_to) REFERENCES users(id),
     CONSTRAINT fk_cases_signed_by FOREIGN KEY (signed_by) REFERENCES users(id),
+    CONSTRAINT fk_cases_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES users(id),
     CONSTRAINT fk_cases_approved_by FOREIGN KEY (approved_by) REFERENCES users(id),
     INDEX idx_cases_date (incident_date),
     INDEX idx_cases_status (status),
@@ -300,8 +303,9 @@ INSERT INTO case_statuses (code, label, color, sort_order) VALUES
 ('abierto',               'Abierto',                  'secondary', 1),
 ('asignado',              'Asignado',                 'primary',   2),
 ('en_atencion',           'En Atencion',              'info',      3),
-('pendiente_aprobacion',  'Pendiente de Aprobacion',  'warning',   4),
-('cerrado',               'Cerrado',                  'success',   5)
+('pendiente_revision',    'Pendiente de Revision',    'warning',   4),
+('pendiente_aprobacion',  'Pendiente de Aprobacion',  'warning',   5),
+('cerrado',               'Cerrado',                  'success',   6)
 ON DUPLICATE KEY UPDATE label = VALUES(label);
 
 INSERT INTO system_settings (setting_key, setting_value) VALUES

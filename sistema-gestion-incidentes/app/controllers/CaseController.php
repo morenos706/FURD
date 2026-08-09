@@ -398,6 +398,25 @@ class CaseController
         H::jsonResponse(['code' => $code]);
     }
 
+    public function review(string $id): void
+    {
+        Auth::requireAbility('case.review');
+        Csrf::verifyRequest();
+        $case = $this->model->find((int) $id);
+        if (!$case) { H::redirect('/cases'); }
+
+        if ($case['status'] !== 'pendiente_revision') {
+            H::flash('danger', 'Este caso no esta pendiente de revision.');
+            H::redirect('/cases/' . $id);
+        }
+
+        $this->requirePin('/cases/' . $id);
+
+        $this->model->review((int) $id, Auth::id());
+        H::flash('success', 'Caso revisado. Queda pendiente de aprobacion de Subcomandancia.');
+        H::redirect('/cases/' . $id);
+    }
+
     public function approve(string $id): void
     {
         Auth::requireAbility('case.approve');
@@ -417,6 +436,7 @@ class CaseController
         H::redirect('/cases/' . $id);
     }
 
+    /** Solo Subcomandancia (o admin) puede reabrir. */
     public function reopen(string $id): void
     {
         Auth::requireAbility('case.reopen');
@@ -424,8 +444,8 @@ class CaseController
         $case = $this->model->find((int) $id);
         if (!$case) { H::redirect('/cases'); }
 
-        if (!in_array($case['status'], ['pendiente_aprobacion', 'cerrado'], true)) {
-            H::flash('danger', 'Este caso no esta cerrado ni pendiente de aprobacion.');
+        if (!in_array($case['status'], ['pendiente_revision', 'pendiente_aprobacion', 'cerrado'], true)) {
+            H::flash('danger', 'Este caso no esta cerrado ni pendiente de revision/aprobacion.');
             H::redirect('/cases/' . $id);
         }
 

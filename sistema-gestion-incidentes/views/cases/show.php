@@ -4,15 +4,16 @@ use App\Helpers\Auth;
 use App\Helpers\Csrf;
 use App\Models\Catalog;
 
-$statusLabels = ['abierto' => 'Abierto', 'asignado' => 'Asignado', 'en_atencion' => 'En Atencion', 'pendiente_aprobacion' => 'Pendiente de Aprobacion', 'cerrado' => 'Cerrado'];
+$statusLabels = ['abierto' => 'Abierto', 'asignado' => 'Asignado', 'en_atencion' => 'En Atencion', 'pendiente_revision' => 'Pendiente de Revision', 'pendiente_aprobacion' => 'Pendiente de Aprobacion', 'cerrado' => 'Cerrado'];
 $priorityLabels = ['baja' => 'Baja', 'media' => 'Media', 'alta' => 'Alta', 'critica' => 'Critica'];
 $fd = $case['form_data_decoded'] ?? [];
 
 $canAssign = Auth::can('case.assign');
 $isAssignedToMe = Auth::isAdmin() || (int) ($case['assigned_to'] ?? 0) === Auth::id();
 $canSignThis = Auth::can('case.sign') && $isAssignedToMe && in_array($case['status'], ['asignado', 'en_atencion'], true);
+$canReview = Auth::can('case.review') && $case['status'] === 'pendiente_revision';
 $canApprove = Auth::can('case.approve') && $case['status'] === 'pendiente_aprobacion';
-$canReopen = Auth::can('case.reopen') && in_array($case['status'], ['pendiente_aprobacion', 'cerrado'], true);
+$canReopen = Auth::can('case.reopen') && in_array($case['status'], ['pendiente_revision', 'pendiente_aprobacion', 'cerrado'], true);
 ?>
 <?php if ($case['latitude'] && $case['longitude']): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><?php endif; ?>
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
@@ -153,6 +154,7 @@ $canReopen = Auth::can('case.reopen') && in_array($case['status'], ['pendiente_a
         <div class="mb-1"><strong>Estado:</strong> <span class="status-badge status-<?= H::e($case['status']) ?>"><?= H::e($statusLabels[$case['status']] ?? $case['status']) ?></span></div>
         <div class="mb-1"><strong>Asignado a:</strong> <?= H::e($case['assigned_name'] ?? 'Sin asignar') ?></div>
         <?php if ($case['signed_at']): ?><div class="mb-1"><strong>Firmado por:</strong> <?= H::e($case['signed_name'] ?? '-') ?> · <?= H::formatDateTime($case['signed_at']) ?></div><?php endif; ?>
+        <?php if ($case['reviewed_at']): ?><div class="mb-1"><strong>Revisado por:</strong> <?= H::e($case['reviewed_name'] ?? '-') ?> · <?= H::formatDateTime($case['reviewed_at']) ?></div><?php endif; ?>
         <?php if ($case['approved_at']): ?><div class="mb-1"><strong>Aprobado por:</strong> <?= H::e($case['approved_name'] ?? '-') ?> · <?= H::formatDateTime($case['approved_at']) ?></div><?php endif; ?>
       </div>
 
@@ -221,6 +223,21 @@ $canReopen = Auth::can('case.reopen') && in_array($case['status'], ['pendiente_a
           </form>
         </div>
       </div>
+      <?php endif; ?>
+
+      <?php if ($canReview): ?>
+      <?php $reviewerHasPin = !empty($currentUser['security_pin_hash']); ?>
+      <form action="<?= H::url('/cases/' . $case['id'] . '/review') ?>" method="post" class="mb-2" data-confirm="¿Marcar como revisado el caso <?= H::e($case['case_number']) ?>?">
+        <?= Csrf::field() ?>
+        <?php if (!$reviewerHasPin): ?>
+          <div class="alert alert-warning small py-2">Configure su PIN de seguridad en <a href="<?= H::url('/profile') ?>">Mi Perfil</a> antes de revisar.</div>
+        <?php endif; ?>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">PIN de Seguridad *</label>
+          <input type="password" name="security_pin" class="form-control form-control-sm" inputmode="numeric" pattern="\d{4,6}" required autocomplete="off" <?= $reviewerHasPin ? '' : 'disabled' ?>>
+        </div>
+        <button class="btn btn-primary w-100" type="submit" <?= $reviewerHasPin ? '' : 'disabled' ?>><i class="bi bi-clipboard-check"></i> Marcar como Revisado (Coordinador de Turno)</button>
+      </form>
       <?php endif; ?>
 
       <?php if ($canApprove): ?>

@@ -49,6 +49,7 @@ $router->post('/cases/{id}/files/{attachmentId}/delete', [new CaseController(), 
 $router->post('/cases/{id}/assign', [new CaseController(), 'assign']);
 $router->post('/cases/{id}/sign', [new CaseController(), 'sign']);
 $router->get('/cases/{id}/sign-code', [new CaseController(), 'signCode']);
+$router->post('/cases/{id}/review', [new CaseController(), 'review']);
 $router->post('/cases/{id}/approve', [new CaseController(), 'approve']);
 $router->post('/cases/{id}/reopen', [new CaseController(), 'reopen']);
 

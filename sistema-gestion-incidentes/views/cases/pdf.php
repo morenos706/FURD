@@ -2,7 +2,7 @@
 use App\Helpers\Helpers as H;
 use App\Models\Catalog;
 
-$statusLabels = ['abierto' => 'Abierto', 'asignado' => 'Asignado', 'en_atencion' => 'En Atencion', 'pendiente_aprobacion' => 'Pendiente de Aprobacion', 'cerrado' => 'Cerrado'];
+$statusLabels = ['abierto' => 'Abierto', 'asignado' => 'Asignado', 'en_atencion' => 'En Atencion', 'pendiente_revision' => 'Pendiente de Revision', 'pendiente_aprobacion' => 'Pendiente de Aprobacion', 'cerrado' => 'Cerrado'];
 $fd = $case['form_data_decoded'] ?? [];
 ?>
 <!DOCTYPE html>

@@ -157,11 +157,13 @@ class CaseRecord
     public function find(int $id, bool $includeDeleted = false): ?array
     {
         $sql = 'SELECT c.*, u.full_name AS responsible_name,
-                    ua.full_name AS assigned_name, us.full_name AS signed_name, uap.full_name AS approved_name
+                    ua.full_name AS assigned_name, us.full_name AS signed_name,
+                    ur.full_name AS reviewed_name, uap.full_name AS approved_name
                 FROM cases c
                 LEFT JOIN users u ON u.id = c.responsible_user_id
                 LEFT JOIN users ua ON ua.id = c.assigned_to
                 LEFT JOIN users us ON us.id = c.signed_by
+                LEFT JOIN users ur ON ur.id = c.reviewed_by
                 LEFT JOIN users uap ON uap.id = c.approved_by
                 WHERE c.id = :id';
         if (!$includeDeleted) {
@@ -368,16 +370,27 @@ class CaseRecord
         CaseHistory::log($caseId, $assignedBy, 'ASIGNADO', 'Caso asignado a un bombero', ['assigned_to' => [null, $assignedTo]]);
     }
 
-    /** El bombero firma el registro: guarda y cambia de estado automaticamente a "pendiente de aprobacion". */
+    /** El bombero firma el registro: guarda y cambia de estado automaticamente a "pendiente de revision". */
     public function sign(int $caseId, int $signedBy, string $method, ?string $signaturePath): void
     {
         $stmt = $this->db->prepare(
             "UPDATE cases SET signed_by = :by, signed_at = NOW(), sign_method = :method,
-                signature_path = :path, status = 'pendiente_aprobacion'
+                signature_path = :path, status = 'pendiente_revision'
              WHERE id = :id"
         );
         $stmt->execute(['by' => $signedBy, 'method' => $method, 'path' => $signaturePath, 'id' => $caseId]);
-        CaseHistory::log($caseId, $signedBy, 'FIRMADO', "Caso firmado ({$method}), pendiente de aprobacion", null);
+        CaseHistory::log($caseId, $signedBy, 'FIRMADO', "Caso firmado ({$method}), pendiente de revision del Coordinador de Turno", null);
+    }
+
+    /** El Coordinador de Turno revisa lo firmado: pasa a pendiente de aprobacion de Subcomandancia. */
+    public function review(int $caseId, int $reviewedBy): void
+    {
+        $stmt = $this->db->prepare(
+            "UPDATE cases SET reviewed_by = :by, reviewed_at = NOW(), status = 'pendiente_aprobacion'
+             WHERE id = :id"
+        );
+        $stmt->execute(['by' => $reviewedBy, 'id' => $caseId]);
+        CaseHistory::log($caseId, $reviewedBy, 'REVISADO', 'Caso revisado por el Coordinador de Turno, pendiente de aprobacion de Subcomandancia', null);
     }
 
     /** Subcomandancia aprueba: cierra el caso automaticamente. */
@@ -391,7 +404,7 @@ class CaseRecord
         CaseHistory::log($caseId, $approvedBy, 'APROBADO', 'Caso aprobado por Subcomandancia y cerrado automaticamente', null);
     }
 
-    /** Reabre un caso cerrado o pendiente de aprobacion: vuelve al flujo (asignado/abierto) y limpia firma/aprobacion. */
+    /** Reabre un caso cerrado/pendiente: vuelve al flujo (asignado/abierto) y limpia firma/revision/aprobacion. Solo Subcomandancia o admin. */
     public function reopen(int $caseId, int $userId): void
     {
         $case = $this->find($caseId);
@@ -400,11 +413,12 @@ class CaseRecord
         $stmt = $this->db->prepare(
             "UPDATE cases SET status = :status, closed_at = NULL,
                 signed_by = NULL, signed_at = NULL, sign_method = NULL, signature_path = NULL,
+                reviewed_by = NULL, reviewed_at = NULL,
                 approved_by = NULL, approved_at = NULL
              WHERE id = :id"
         );
         $stmt->execute(['status' => $newStatus, 'id' => $caseId]);
-        CaseHistory::log($caseId, $userId, 'REABIERTO', 'Caso reabierto, firma y aprobacion anteriores fueron limpiadas', null);
+        CaseHistory::log($caseId, $userId, 'REABIERTO', 'Caso reabierto por Subcomandancia, firma/revision/aprobacion anteriores fueron limpiadas', null);
     }
 
     // -----------------------------------------------------------------

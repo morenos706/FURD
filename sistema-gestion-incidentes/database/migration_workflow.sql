@@ -140,3 +140,29 @@ UPDATE system_settings SET setting_value = '/branding/logo.jpg'
     WHERE setting_key = 'logo_path' AND (setting_value IS NULL OR setting_value = '');
 UPDATE system_settings SET setting_value = '/branding/login_bg.jpg'
     WHERE setting_key = 'login_bg_path' AND (setting_value IS NULL OR setting_value = '');
+
+-- ---------------------------------------------------------------------
+-- Paso de revision del Coordinador de Turno entre la firma del bombero
+-- y la aprobacion de Subcomandancia: firmado -> pendiente_revision ->
+-- (coordinador revisa) -> pendiente_aprobacion -> (subcomandancia
+-- aprueba) -> cerrado.
+-- ---------------------------------------------------------------------
+INSERT INTO case_statuses (code, label, color, sort_order) VALUES
+('pendiente_revision', 'Pendiente de Revision', 'warning', 4)
+ON DUPLICATE KEY UPDATE label = VALUES(label);
+UPDATE case_statuses SET sort_order = 5 WHERE code = 'pendiente_aprobacion';
+UPDATE case_statuses SET sort_order = 6 WHERE code = 'cerrado';
+
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS reviewed_by INT DEFAULT NULL AFTER signature_path;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS reviewed_at DATETIME DEFAULT NULL AFTER reviewed_by;
+
+SET @fk_exists = (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = DATABASE() AND CONSTRAINT_NAME = 'fk_cases_reviewed_by');
+SET @sql = IF(@fk_exists = 0,
+    'ALTER TABLE cases ADD CONSTRAINT fk_cases_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES users(id)',
+    'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- Los casos ya firmados que estaban esperando aprobacion directa ahora
+-- deben esperar primero la revision del Coordinador de Turno.
+UPDATE cases SET status = 'pendiente_revision' WHERE status = 'pendiente_aprobacion' AND reviewed_at IS NULL;

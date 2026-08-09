@@ -102,10 +102,10 @@ class Auth
             'radio_operador' => ['case.create', 'case.view', 'case.assign', 'case.edit_own', 'stats.view', 'search'],
             // Diligencia y firma los casos que tiene asignados.
             'bombero' => ['case.view', 'case.edit_own', 'case.sign', 'stats.view', 'search'],
-            // Supervisa el turno: puede asignar/reasignar y sacar reportes.
-            'coordinador_turno' => ['case.view', 'case.assign', 'case.report', 'case.reopen', 'export.own', 'stats.view', 'search'],
-            // Aprueba el cierre de casos ya firmados.
-            'subcomandancia' => ['case.view', 'case.approve', 'case.report', 'case.reopen', 'export.own', 'stats.view', 'search'],
+            // Supervisa el turno: asigna/reasigna, revisa lo firmado antes de que pase a Subcomandancia, y saca reportes.
+            'coordinador_turno' => ['case.view', 'case.assign', 'case.review', 'case.report', 'export.own', 'stats.view', 'search'],
+            // Aprueba (cierra) los casos ya revisados por el Coordinador de Turno. Solo Subcomandancia puede reabrir.
+            'subcomandancia' => ['case.view', 'case.approve', 'case.reopen', 'case.report', 'export.own', 'stats.view', 'search'],
         ];
         $allowed = $matrix[$role] ?? [];
         return in_array('*', $allowed, true) || in_array($ability, $allowed, true);

@@ -119,6 +119,7 @@ body {
 .status-abierto { background: #e2e3e5; color: #41464b; }
 .status-asignado { background: #cfe2ff; color: #1a4ba0; }
 .status-en_atencion { background: #d7e8fd; color: #0b5ed7; }
+.status-pendiente_revision { background: #ffe8cc; color: #a15c00; }
 .status-pendiente_aprobacion { background: #fff3cd; color: #92650b; }
 .status-cerrado { background: #d1ecf1; color: #0b6a75; }
 .priority-baja { color: #4b7; }
