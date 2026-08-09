@@ -1,0 +1,10 @@
+# Si el DocumentRoot del servidor apunta accidentalmente a la raiz del
+# proyecto (en vez de /public), este archivo bloquea el acceso directo
+# a codigo fuente y configuracion sensible.
+RewriteEngine On
+RewriteCond %{REQUEST_URI} !^/public/
+RewriteRule ^(app|config|database|storage|vendor)/ - [F,L]
+
+<FilesMatch "\.(env|sql|log)$">
+    Require all denied
+</FilesMatch>

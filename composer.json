@@ -1,0 +1,16 @@
+{
+    "name": "bomberos/sistema-gestion-incidentes",
+    "description": "Sistema Web de Gestion, Analitica y Reportes - basado en formulario FURD",
+    "type": "project",
+    "require": {
+        "php": ">=8.2",
+        "phpoffice/phpspreadsheet": "^3.3",
+        "dompdf/dompdf": "^3.1",
+        "vlucas/phpdotenv": "^5.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    }
+}
