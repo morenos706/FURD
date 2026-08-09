@@ -69,8 +69,17 @@ class UserController
             H::flash('danger', 'Ya existe un usuario con ese nombre de usuario.');
             H::redirect('/users/create');
         }
+        if ($data['email'] !== '' && $model->findByEmail($data['email'])) {
+            H::flash('danger', 'Ya existe un usuario con ese correo electronico.');
+            H::redirect('/users/create');
+        }
 
-        $id = $model->create($data);
+        try {
+            $id = $model->create($data);
+        } catch (\PDOException $e) {
+            H::flash('danger', 'No se pudo crear el usuario. Verifique que el rol seleccionado sea valido y que el correo/usuario no esten repetidos.');
+            H::redirect('/users/create');
+        }
         AuditLog::record(Auth::id(), 'CREAR_USUARIO', 'user', $data['username'], null, ['username' => $data['username'], 'role_id' => $data['role_id']]);
 
         H::flash('success', 'Usuario creado correctamente.');
@@ -106,7 +115,20 @@ class UserController
         ];
 
         $model = new User();
-        $model->update((int) $id, $data);
+        if ($data['email'] !== '') {
+            $existing = $model->findByEmail($data['email']);
+            if ($existing && (int) $existing['id'] !== (int) $id) {
+                H::flash('danger', 'Ya existe otro usuario con ese correo electronico.');
+                H::redirect('/users/' . $id . '/edit');
+            }
+        }
+
+        try {
+            $model->update((int) $id, $data);
+        } catch (\PDOException $e) {
+            H::flash('danger', 'No se pudo actualizar el usuario. Verifique que el rol seleccionado sea valido y que el correo no este repetido.');
+            H::redirect('/users/' . $id . '/edit');
+        }
         AuditLog::record(Auth::id(), 'EDITAR_USUARIO', 'user', $id, null, ['role_id' => $data['role_id'], 'active' => $data['active']]);
 
         H::flash('success', 'Usuario actualizado correctamente.');

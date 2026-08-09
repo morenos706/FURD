@@ -26,6 +26,14 @@ class User
         return $row ?: null;
     }
 
+    public function findByEmail(string $email): ?array
+    {
+        $stmt = $this->db->prepare('SELECT id, username FROM users WHERE email = :e LIMIT 1');
+        $stmt->execute(['e' => $email]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
     public function find(int $id): ?array
     {
         $stmt = $this->db->prepare(
