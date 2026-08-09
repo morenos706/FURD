@@ -2,7 +2,7 @@
 use App\Helpers\Helpers as H;
 use App\Models\Catalog;
 
-$statusLabels = ['abierto' => 'Abierto', 'en_atencion' => 'En Atencion', 'cerrado' => 'Cerrado'];
+$statusLabels = ['abierto' => 'Abierto', 'asignado' => 'Asignado', 'en_atencion' => 'En Atencion', 'pendiente_aprobacion' => 'Pendiente de Aprobacion', 'cerrado' => 'Cerrado'];
 $fd = $case['form_data_decoded'] ?? [];
 ?>
 <!DOCTYPE html>
@@ -100,6 +100,27 @@ $fd = $case['form_data_decoded'] ?? [];
       <?php endforeach; ?>
     </table>
   <?php endforeach; ?>
+
+  <?php if ($evidencePhotos): ?>
+  <h2 class="section">Evidencias Fotograficas</h2>
+  <table class="grid"><tr>
+    <?php foreach ($evidencePhotos as $i => $photo): ?>
+      <td style="width:25%;"><img src="<?= $photo['uri'] ?>" style="width:100%;max-height:120px;object-fit:cover;border:1px solid #ddd;"></td>
+      <?php if (($i + 1) % 4 === 0): ?></tr><tr><?php endif; ?>
+    <?php endforeach; ?>
+  </tr></table>
+  <?php endif; ?>
+
+  <h2 class="section">Responsable del Registro y Firma</h2>
+  <table class="grid">
+    <tr><td class="label">Nombre</td><td><?= H::e($case['signed_name'] ?? Catalog::label('list_nombre_completo', $fd['nombre_completo'] ?? '') ?? '-') ?></td>
+        <td class="label">Cedula</td><td><?= H::e($fd['cedula_de_ciudadania'] ?? '-') ?></td></tr>
+    <tr><td class="label">Firmado</td><td><?= $case['signed_at'] ? H::formatDateTime($case['signed_at']) . ' (' . H::e($case['sign_method']) . ')' : 'Sin firmar' ?></td>
+        <td class="label">Aprobado</td><td><?= $case['approved_at'] ? H::formatDateTime($case['approved_at']) . ' por ' . H::e($case['approved_name'] ?? '') : 'Pendiente' ?></td></tr>
+  </table>
+  <?php if ($signaturePhoto): ?>
+    <img src="<?= $signaturePhoto ?>" style="max-height:100px;border:1px solid #ddd;padding:4px;">
+  <?php endif; ?>
 
   <h2 class="section">Historial de Modificaciones</h2>
   <table class="list">

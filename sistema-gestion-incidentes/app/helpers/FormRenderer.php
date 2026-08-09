@@ -35,8 +35,15 @@ class FormRenderer
             ),
         };
 
+        $wrapperClass = 'col-md-4 mb-3';
+        $claseAttr = '';
+        if (preg_match('/^clase_de_servicio_(\d+)/', $name, $m)) {
+            $wrapperClass .= ' clase-servicio-field';
+            $claseAttr = ' data-clase-servicio="' . $m[1] . '"';
+        }
+
         return <<<HTML
-        <div class="col-md-4 mb-3">
+        <div class="{$wrapperClass}"{$claseAttr}>
             <label for="{$id}" class="form-label small fw-semibold">{$label}</label>
             {$control}
             {$hint}

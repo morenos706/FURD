@@ -4,10 +4,16 @@ use App\Helpers\Auth;
 use App\Helpers\Csrf;
 use App\Models\Catalog;
 
-$statusLabels = ['abierto' => 'Abierto', 'en_atencion' => 'En Atencion', 'cerrado' => 'Cerrado'];
+$statusLabels = ['abierto' => 'Abierto', 'asignado' => 'Asignado', 'en_atencion' => 'En Atencion', 'pendiente_aprobacion' => 'Pendiente de Aprobacion', 'cerrado' => 'Cerrado'];
 $priorityLabels = ['baja' => 'Baja', 'media' => 'Media', 'alta' => 'Alta', 'critica' => 'Critica'];
 $fd = $case['form_data_decoded'] ?? [];
+
+$canAssign = Auth::can('case.assign');
+$isAssignedToMe = Auth::isAdmin() || (int) ($case['assigned_to'] ?? 0) === Auth::id();
+$canSignThis = Auth::can('case.sign') && $isAssignedToMe && in_array($case['status'], ['asignado', 'en_atencion'], true);
+$canApprove = Auth::can('case.approve') && $case['status'] === 'pendiente_aprobacion';
 ?>
+<?php if ($case['latitude'] && $case['longitude']): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><?php endif; ?>
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
   <div>
     <h3 class="mb-1">Caso #<?= H::e($case['case_number']) ?> <span class="status-badge status-<?= H::e($case['status']) ?>"><?= H::e($statusLabels[$case['status']] ?? $case['status']) ?></span></h3>
@@ -44,7 +50,35 @@ $fd = $case['form_data_decoded'] ?? [];
         <div class="col-md-6 mb-2"><strong>Responsable:</strong><br><?= H::e($case['responsible_name'] ?? 'Sin asignar') ?></div>
         <div class="col-12 mb-2"><strong>Descripcion:</strong><br><?= nl2br(H::e($case['description'] ?? '-')) ?></div>
       </div>
+      <?php if ($case['latitude'] && $case['longitude']): ?>
+        <div id="showMap" style="height:260px;border-radius:.5rem;" data-lat="<?= H::e($case['latitude']) ?>" data-lng="<?= H::e($case['longitude']) ?>"></div>
+      <?php endif; ?>
     </div>
+
+    <?php if ($evidenceFiles): ?>
+    <div class="section-card mb-3">
+      <div class="form-section-title">Evidencias Fotograficas</div>
+      <div class="d-flex flex-wrap gap-2">
+        <?php foreach ($evidenceFiles as $ev): ?>
+          <a href="<?= H::url('/cases/' . $case['id'] . '/files/' . $ev['id']) ?>" target="_blank">
+            <img src="<?= H::url('/cases/' . $case['id'] . '/files/' . $ev['id']) ?>" alt="Evidencia" style="width:120px;height:120px;object-fit:cover;border-radius:.5rem;border:1px solid #dee2e6;">
+          </a>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($firefighters): ?>
+    <div class="section-card mb-3">
+      <div class="form-section-title">Personal (Bomberos) y Vehiculo</div>
+      <div class="table-responsive"><table class="table table-sm">
+        <thead><tr><th>Nombre</th><th>Rol / Cargo</th><th>Vehiculo</th></tr></thead>
+        <tbody><?php foreach ($firefighters as $f): ?>
+          <tr><td><?= H::e($f['firefighter_name'] ?: '-') ?></td><td><?= H::e($f['role'] ?: '-') ?></td><td><?= H::e($f['vehicle_value'] ?: '-') ?></td></tr>
+        <?php endforeach; ?></tbody>
+      </table></div>
+    </div>
+    <?php endif; ?>
 
     <?php if ($buildings): ?>
     <div class="section-card mb-3">
@@ -100,6 +134,74 @@ $fd = $case['form_data_decoded'] ?? [];
   </div>
 
   <div class="col-lg-4">
+    <div class="section-card mb-3">
+      <div class="form-section-title">Flujo del Caso</div>
+      <div class="small mb-3">
+        <div class="mb-1"><strong>Estado:</strong> <span class="status-badge status-<?= H::e($case['status']) ?>"><?= H::e($statusLabels[$case['status']] ?? $case['status']) ?></span></div>
+        <div class="mb-1"><strong>Asignado a:</strong> <?= H::e($case['assigned_name'] ?? 'Sin asignar') ?></div>
+        <?php if ($case['signed_at']): ?><div class="mb-1"><strong>Firmado por:</strong> <?= H::e($case['signed_name'] ?? '-') ?> · <?= H::formatDateTime($case['signed_at']) ?></div><?php endif; ?>
+        <?php if ($case['approved_at']): ?><div class="mb-1"><strong>Aprobado por:</strong> <?= H::e($case['approved_name'] ?? '-') ?> · <?= H::formatDateTime($case['approved_at']) ?></div><?php endif; ?>
+      </div>
+
+      <?php if ($canAssign && $case['status'] !== 'cerrado'): ?>
+      <form action="<?= H::url('/cases/' . $case['id'] . '/assign') ?>" method="post" class="mb-3">
+        <?= Csrf::field() ?>
+        <label class="form-label small fw-semibold">Asignar a Bombero</label>
+        <div class="input-group input-group-sm">
+          <select name="assigned_to" class="form-select" required>
+            <option value="">-- Seleccione --</option>
+            <?php foreach ($bomberos as $b): ?>
+              <option value="<?= $b['id'] ?>" <?= ((int) ($case['assigned_to'] ?? 0) === (int) $b['id']) ? 'selected' : '' ?>><?= H::e($b['full_name']) ?></option>
+            <?php endforeach; ?>
+          </select>
+          <button class="btn btn-danger" type="submit"><i class="bi bi-send"></i></button>
+        </div>
+      </form>
+      <?php endif; ?>
+
+      <?php if ($canSignThis): ?>
+      <button type="button" class="btn btn-sm btn-danger w-100 mb-2" data-bs-toggle="collapse" data-bs-target="#signPanel"><i class="bi bi-pen"></i> Firmar Caso</button>
+      <div class="collapse" id="signPanel">
+        <div class="border rounded p-2 mb-3">
+          <ul class="nav nav-tabs nav-tabs-sm small mb-2" id="signMethodTabs">
+            <li class="nav-item"><button type="button" class="nav-link active" data-sign-tab="dibujo">Dibujar</button></li>
+            <li class="nav-item"><button type="button" class="nav-link" data-sign-tab="foto">Subir Foto</button></li>
+            <li class="nav-item"><button type="button" class="nav-link" data-sign-tab="codigo">Codigo</button></li>
+          </ul>
+
+          <form action="<?= H::url('/cases/' . $case['id'] . '/sign') ?>" method="post" enctype="multipart/form-data" id="signForm">
+            <?= Csrf::field() ?>
+            <input type="hidden" name="sign_method" id="signMethodInput" value="dibujo">
+            <input type="hidden" name="signature_data" id="signatureDataInput">
+
+            <div data-sign-pane="dibujo">
+              <canvas id="signatureCanvas" width="280" height="140" style="border:1px solid #ced4da;border-radius:.375rem;touch-action:none;background:#fff;"></canvas>
+              <div class="mt-1"><button type="button" class="btn btn-sm btn-outline-secondary" id="clearSignatureBtn">Limpiar</button></div>
+            </div>
+            <div data-sign-pane="foto" style="display:none;">
+              <input type="file" name="signature_file" class="form-control form-control-sm" accept="image/jpeg,image/png,image/webp">
+            </div>
+            <div data-sign-pane="codigo" style="display:none;">
+              <button type="button" class="btn btn-sm btn-outline-danger mb-2" id="genCodeBtn">Generar codigo de confirmacion</button>
+              <div id="codeDisplay" class="fw-bold fs-5 text-center mb-2"></div>
+              <input type="text" name="sign_code" class="form-control form-control-sm" placeholder="Escriba el codigo mostrado arriba">
+              <div class="form-text">Confirmacion en pantalla (esta version no envia SMS/correo).</div>
+            </div>
+
+            <button type="submit" class="btn btn-sm btn-danger w-100 mt-2"><i class="bi bi-check2-circle"></i> Confirmar Firma</button>
+          </form>
+        </div>
+      </div>
+      <?php endif; ?>
+
+      <?php if ($canApprove): ?>
+      <form action="<?= H::url('/cases/' . $case['id'] . '/approve') ?>" method="post" data-confirm="¿Aprobar y cerrar el caso <?= H::e($case['case_number']) ?>?">
+        <?= Csrf::field() ?>
+        <button class="btn btn-success w-100" type="submit"><i class="bi bi-check-circle"></i> Aprobar y Cerrar (Subcomandancia)</button>
+      </form>
+      <?php endif; ?>
+    </div>
+
     <div class="section-card">
       <div class="form-section-title">Linea de Tiempo</div>
       <?php if (empty($history)): ?>
@@ -118,3 +220,85 @@ $fd = $case['form_data_decoded'] ?? [];
     </div>
   </div>
 </div>
+
+<?php $extraScripts = ($case['latitude'] && $case['longitude'] ? '<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>' : '') . '
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var showMapEl = document.getElementById("showMap");
+  if (showMapEl && window.L) {
+    var lat = parseFloat(showMapEl.dataset.lat), lng = parseFloat(showMapEl.dataset.lng);
+    var map = L.map("showMap", { scrollWheelZoom: false }).setView([lat, lng], 15);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap", maxZoom: 19 }).addTo(map);
+    L.marker([lat, lng]).addTo(map);
+    setTimeout(function () { map.invalidateSize(); }, 300);
+  }
+
+  // ---- Firma: tabs de metodo ----
+  var tabs = document.querySelectorAll("[data-sign-tab]");
+  var methodInput = document.getElementById("signMethodInput");
+  tabs.forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      tabs.forEach(function (t) { t.classList.remove("active"); });
+      tab.classList.add("active");
+      var method = tab.dataset.signTab;
+      if (methodInput) methodInput.value = method;
+      document.querySelectorAll("[data-sign-pane]").forEach(function (pane) {
+        pane.style.display = (pane.dataset.signPane === method) ? "" : "none";
+      });
+    });
+  });
+
+  // ---- Firma: canvas de dibujo ----
+  var canvas = document.getElementById("signatureCanvas");
+  if (canvas) {
+    var ctx = canvas.getContext("2d");
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#111";
+    var drawing = false;
+    var dataInput = document.getElementById("signatureDataInput");
+
+    function pos(e) {
+      var rect = canvas.getBoundingClientRect();
+      var point = e.touches ? e.touches[0] : e;
+      return { x: point.clientX - rect.left, y: point.clientY - rect.top };
+    }
+    function start(e) { drawing = true; var p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); }
+    function move(e) { if (!drawing) return; var p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); }
+    function end() { if (!drawing) return; drawing = false; if (dataInput) dataInput.value = canvas.toDataURL("image/png"); }
+
+    canvas.addEventListener("mousedown", start);
+    canvas.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", end);
+    canvas.addEventListener("touchstart", start);
+    canvas.addEventListener("touchmove", move);
+    canvas.addEventListener("touchend", end);
+
+    var clearBtn = document.getElementById("clearSignatureBtn");
+    if (clearBtn) clearBtn.addEventListener("click", function () {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (dataInput) dataInput.value = "";
+    });
+
+    var signForm = document.getElementById("signForm");
+    if (signForm) signForm.addEventListener("submit", function () {
+      if (methodInput && methodInput.value === "dibujo" && dataInput) {
+        dataInput.value = canvas.toDataURL("image/png");
+      }
+    });
+  }
+
+  // ---- Firma: codigo de confirmacion ----
+  var genCodeBtn = document.getElementById("genCodeBtn");
+  if (genCodeBtn) {
+    genCodeBtn.addEventListener("click", function () {
+      fetch("' . H::url('/cases/' . $case['id'] . '/sign-code') . '")
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          document.getElementById("codeDisplay").textContent = data.code;
+        });
+    });
+  }
+});
+</script>';
+?>

@@ -97,9 +97,15 @@ class Auth
     {
         $role = self::role();
         $matrix = [
-            'admin'    => ['*'],
-            'usuario'  => ['case.create', 'case.view', 'case.edit_own', 'case.report', 'export.own', 'stats.view'],
-            'consulta' => ['case.view', 'stats.view', 'search'],
+            'admin' => ['*'],
+            // Crea el caso y lo asigna a un bombero.
+            'radio_operador' => ['case.create', 'case.view', 'case.assign', 'case.edit_own', 'stats.view', 'search'],
+            // Diligencia y firma los casos que tiene asignados.
+            'bombero' => ['case.view', 'case.edit_own', 'case.sign', 'stats.view', 'search'],
+            // Supervisa el turno: puede asignar/reasignar y sacar reportes.
+            'coordinador_turno' => ['case.view', 'case.assign', 'case.report', 'export.own', 'stats.view', 'search'],
+            // Aprueba el cierre de casos ya firmados.
+            'subcomandancia' => ['case.view', 'case.approve', 'case.report', 'export.own', 'stats.view', 'search'],
         ];
         $allowed = $matrix[$role] ?? [];
         return in_array('*', $allowed, true) || in_array($ability, $allowed, true);

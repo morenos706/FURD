@@ -43,6 +43,12 @@ $router->post('/cases/{id}', [new CaseController(), 'update']);
 $router->post('/cases/{id}/delete', [new CaseController(), 'destroy']);
 $router->post('/cases/{id}/duplicate', [new CaseController(), 'duplicate']);
 $router->get('/cases/{id}/pdf', [new CaseController(), 'pdf']);
+$router->get('/cases/{id}/files/{attachmentId}', [new CaseController(), 'file']);
+$router->post('/cases/{id}/files/{attachmentId}/delete', [new CaseController(), 'deleteAttachment']);
+$router->post('/cases/{id}/assign', [new CaseController(), 'assign']);
+$router->post('/cases/{id}/sign', [new CaseController(), 'sign']);
+$router->get('/cases/{id}/sign-code', [new CaseController(), 'signCode']);
+$router->post('/cases/{id}/approve', [new CaseController(), 'approve']);
 
 // Reportes
 $router->get('/reports', [new ReportController(), 'index']);

@@ -156,8 +156,13 @@ class CaseRecord
 
     public function find(int $id, bool $includeDeleted = false): ?array
     {
-        $sql = 'SELECT c.*, u.full_name AS responsible_name
-                FROM cases c LEFT JOIN users u ON u.id = c.responsible_user_id
+        $sql = 'SELECT c.*, u.full_name AS responsible_name,
+                    ua.full_name AS assigned_name, us.full_name AS signed_name, uap.full_name AS approved_name
+                FROM cases c
+                LEFT JOIN users u ON u.id = c.responsible_user_id
+                LEFT JOIN users ua ON ua.id = c.assigned_to
+                LEFT JOIN users us ON us.id = c.signed_by
+                LEFT JOIN users uap ON uap.id = c.approved_by
                 WHERE c.id = :id';
         if (!$includeDeleted) {
             $sql .= ' AND c.deleted_at IS NULL';
@@ -336,14 +341,96 @@ class CaseRecord
     {
         $this->db->prepare('DELETE FROM case_firefighters WHERE case_id = :id')->execute(['id' => $caseId]);
         $stmt = $this->db->prepare(
-            'INSERT INTO case_firefighters (case_id, seq, firefighter_name, role)
-             VALUES (:case_id, :seq, :name, :role)'
+            'INSERT INTO case_firefighters (case_id, seq, firefighter_name, role, vehicle_value)
+             VALUES (:case_id, :seq, :name, :role, :vehicle_value)'
         );
         $seq = 1;
         foreach ($firefighters as $f) {
             if (empty($f['name'])) continue;
-            $stmt->execute(['case_id' => $caseId, 'seq' => $seq++, 'name' => $f['name'], 'role' => $f['role'] ?? null]);
+            $stmt->execute([
+                'case_id' => $caseId, 'seq' => $seq++, 'name' => $f['name'], 'role' => $f['role'] ?? null,
+                'vehicle_value' => $f['vehicle_value'] ?: null,
+            ]);
         }
+    }
+
+    // -----------------------------------------------------------------
+    // Flujo: asignacion (radio operador -> bombero), firma (bombero),
+    // aprobacion (subcomandancia) y cierre automatico.
+    // -----------------------------------------------------------------
+    public function assign(int $caseId, int $assignedTo, int $assignedBy): void
+    {
+        $stmt = $this->db->prepare(
+            "UPDATE cases SET assigned_to = :to, assigned_by = :by, assigned_at = NOW(), status = 'asignado'
+             WHERE id = :id"
+        );
+        $stmt->execute(['to' => $assignedTo, 'by' => $assignedBy, 'id' => $caseId]);
+        CaseHistory::log($caseId, $assignedBy, 'ASIGNADO', 'Caso asignado a un bombero', ['assigned_to' => [null, $assignedTo]]);
+    }
+
+    /** El bombero firma el registro: guarda y cambia de estado automaticamente a "pendiente de aprobacion". */
+    public function sign(int $caseId, int $signedBy, string $method, ?string $signaturePath): void
+    {
+        $stmt = $this->db->prepare(
+            "UPDATE cases SET signed_by = :by, signed_at = NOW(), sign_method = :method,
+                signature_path = :path, status = 'pendiente_aprobacion'
+             WHERE id = :id"
+        );
+        $stmt->execute(['by' => $signedBy, 'method' => $method, 'path' => $signaturePath, 'id' => $caseId]);
+        CaseHistory::log($caseId, $signedBy, 'FIRMADO', "Caso firmado ({$method}), pendiente de aprobacion", null);
+    }
+
+    /** Subcomandancia aprueba: cierra el caso automaticamente. */
+    public function approve(int $caseId, int $approvedBy): void
+    {
+        $stmt = $this->db->prepare(
+            "UPDATE cases SET approved_by = :by, approved_at = NOW(), status = 'cerrado', closed_at = NOW()
+             WHERE id = :id"
+        );
+        $stmt->execute(['by' => $approvedBy, 'id' => $caseId]);
+        CaseHistory::log($caseId, $approvedBy, 'APROBADO', 'Caso aprobado por Subcomandancia y cerrado automaticamente', null);
+    }
+
+    // -----------------------------------------------------------------
+    // Adjuntos (fotos de evidencia, censo, firma)
+    // -----------------------------------------------------------------
+    public function addAttachment(int $caseId, string $kind, string $filePath, ?string $originalName, int $uploadedBy): int
+    {
+        $stmt = $this->db->prepare(
+            'INSERT INTO case_attachments (case_id, kind, file_path, original_name, uploaded_by)
+             VALUES (:case_id, :kind, :file_path, :original_name, :uploaded_by)'
+        );
+        $stmt->execute([
+            'case_id' => $caseId, 'kind' => $kind, 'file_path' => $filePath,
+            'original_name' => $originalName, 'uploaded_by' => $uploadedBy,
+        ]);
+        return (int) $this->db->lastInsertId();
+    }
+
+    public function getAttachments(int $caseId, ?string $kind = null): array
+    {
+        $sql = 'SELECT * FROM case_attachments WHERE case_id = :id';
+        $params = ['id' => $caseId];
+        if ($kind !== null) {
+            $sql .= ' AND kind = :kind';
+            $params['kind'] = $kind;
+        }
+        $sql .= ' ORDER BY id';
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    public function findAttachment(int $caseId, int $attachmentId): ?array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM case_attachments WHERE id = :aid AND case_id = :cid');
+        $stmt->execute(['aid' => $attachmentId, 'cid' => $caseId]);
+        return $stmt->fetch() ?: null;
+    }
+
+    public function deleteAttachment(int $attachmentId): void
+    {
+        $this->db->prepare('DELETE FROM case_attachments WHERE id = :id')->execute(['id' => $attachmentId]);
     }
 
     public function getBuildings(int $caseId): array

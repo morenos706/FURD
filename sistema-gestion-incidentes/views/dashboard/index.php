@@ -2,7 +2,7 @@
 use App\Helpers\Helpers as H;
 use App\Models\Catalog;
 
-$statusLabels = ['abierto' => 'Abierto', 'en_atencion' => 'En Atencion', 'cerrado' => 'Cerrado'];
+$statusLabels = ['abierto' => 'Abierto', 'asignado' => 'Asignado', 'en_atencion' => 'En Atencion', 'pendiente_aprobacion' => 'Pendiente de Aprobacion', 'cerrado' => 'Cerrado'];
 ?>
 <form method="get" class="filter-bar row g-2 align-items-end">
   <div class="col-6 col-md-2">
@@ -63,7 +63,7 @@ $statusLabels = ['abierto' => 'Abierto', 'en_atencion' => 'En Atencion', 'cerrad
   <div class="col-6 col-lg-3">
     <div class="kpi-card">
       <div class="kpi-icon" style="background:#d69e2e;"><i class="bi bi-exclamation-triangle"></i></div>
-      <div><div class="kpi-value"><?= (int)($kpis['abiertos'] ?? 0) + (int)($kpis['en_atencion'] ?? 0) ?></div><div class="kpi-label">Casos Abiertos</div></div>
+      <div><div class="kpi-value"><?= max(0, (int)($kpis['total'] ?? 0) - (int)($kpis['cerrados'] ?? 0)) ?></div><div class="kpi-label">Casos Abiertos</div></div>
     </div>
   </div>
   <div class="col-6 col-lg-3">

@@ -101,4 +101,14 @@ class User
     {
         return $this->db->query('SELECT * FROM roles ORDER BY id')->fetchAll();
     }
+
+    public function allByRole(string $roleCode): array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT u.* FROM users u JOIN roles r ON r.id = u.role_id
+             WHERE r.code = :code AND u.active = 1 ORDER BY u.full_name'
+        );
+        $stmt->execute(['code' => $roleCode]);
+        return $stmt->fetchAll();
+    }
 }

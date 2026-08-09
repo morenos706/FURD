@@ -115,8 +115,10 @@ body {
 .section-title { font-weight: 700; font-size: .95rem; margin-bottom: 1rem; }
 
 .status-badge { padding: .28rem .65rem; border-radius: 1rem; font-size: .72rem; font-weight: 700; text-transform: uppercase; }
-.status-abierto { background: #fff3cd; color: #92650b; }
-.status-en_atencion { background: #cfe2ff; color: #1a4ba0; }
+.status-abierto { background: #e2e3e5; color: #41464b; }
+.status-asignado { background: #cfe2ff; color: #1a4ba0; }
+.status-en_atencion { background: #d7e8fd; color: #0b5ed7; }
+.status-pendiente_aprobacion { background: #fff3cd; color: #92650b; }
 .status-cerrado { background: #d1ecf1; color: #0b6a75; }
 .priority-baja { color: #4b7; }
 .priority-media { color: #d69e2e; }

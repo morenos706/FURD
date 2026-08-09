@@ -42,7 +42,9 @@
             <select name="status" class="form-select">
               <option value="">Todos</option>
               <option value="abierto">Abierto</option>
+              <option value="asignado">Asignado</option>
               <option value="en_atencion">En Atencion</option>
+              <option value="pendiente_aprobacion">Pendiente de Aprobacion</option>
               <option value="cerrado">Cerrado</option>
             </select>
           </div>

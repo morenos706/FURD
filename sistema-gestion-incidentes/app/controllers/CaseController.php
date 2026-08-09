@@ -81,7 +81,10 @@ class CaseController
             require BASE_PATH . '/views/errors/403.php';
             exit;
         }
-        if ((int) ($case['created_by'] ?? 0) !== Auth::id() && (int) ($case['responsible_user_id'] ?? 0) !== Auth::id()) {
+        $mine = (int) ($case['created_by'] ?? 0) === Auth::id()
+            || (int) ($case['responsible_user_id'] ?? 0) === Auth::id()
+            || (int) ($case['assigned_to'] ?? 0) === Auth::id();
+        if (!$mine) {
             http_response_code(403);
             require BASE_PATH . '/views/errors/403.php';
             exit;
@@ -103,6 +106,8 @@ class CaseController
             'persons' => $case ? $this->model->getPersons((int) $case['id']) : [],
             'animals' => $case ? $this->model->getAnimals((int) $case['id']) : [],
             'firefighters' => $case ? $this->model->getFirefighters((int) $case['id']) : [],
+            'evidenceFiles' => $case ? $this->model->getAttachments((int) $case['id'], 'evidencia') : [],
+            'censoFiles' => $case ? $this->model->getAttachments((int) $case['id'], 'censo') : [],
             'sections' => $sections,
             'templates' => $templates,
             'statuses' => $this->statuses(),
@@ -139,6 +144,7 @@ class CaseController
         $this->model->replacePersons($id, $persons);
         $this->model->replaceAnimals($id, $animals);
         $this->model->replaceFirefighters($id, $firefighters);
+        $this->storeUploads($id);
 
         H::flash('success', 'Registro guardado correctamente.');
         H::redirect('/cases/' . $id);
@@ -165,8 +171,189 @@ class CaseController
         $this->model->replacePersons((int) $id, $persons);
         $this->model->replaceAnimals((int) $id, $animals);
         $this->model->replaceFirefighters((int) $id, $firefighters);
+        $this->storeUploads((int) $id);
 
         H::flash('success', 'Registro actualizado correctamente.');
+        H::redirect('/cases/' . $id);
+    }
+
+    /** Guarda las fotos de evidencia y el censo anexo subidos con el formulario. */
+    private function storeUploads(int $caseId): void
+    {
+        $dir = BASE_PATH . '/storage/uploads/cases/' . $caseId;
+        if (!is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+
+        $allowedImages = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+
+        if (!empty($_FILES['evidencia_files']) && is_array($_FILES['evidencia_files']['tmp_name'])) {
+            foreach ($_FILES['evidencia_files']['tmp_name'] as $i => $tmpName) {
+                if (!$tmpName || $_FILES['evidencia_files']['error'][$i] !== UPLOAD_ERR_OK) continue;
+                $mime = mime_content_type($tmpName) ?: '';
+                if (!isset($allowedImages[$mime])) continue;
+                $filename = 'evidencia_' . bin2hex(random_bytes(6)) . '.' . $allowedImages[$mime];
+                if (move_uploaded_file($tmpName, $dir . '/' . $filename)) {
+                    $this->model->addAttachment($caseId, 'evidencia', $filename, $_FILES['evidencia_files']['name'][$i] ?? null, Auth::id());
+                }
+            }
+        }
+
+        if (!empty($_FILES['censo_file']) && $_FILES['censo_file']['error'] === UPLOAD_ERR_OK) {
+            $ext = strtolower(pathinfo($_FILES['censo_file']['name'], PATHINFO_EXTENSION));
+            if (in_array($ext, ['pdf', 'jpg', 'jpeg', 'png', 'xlsx', 'xls', 'doc', 'docx'], true)) {
+                $filename = 'censo_' . bin2hex(random_bytes(6)) . '.' . $ext;
+                if (move_uploaded_file($_FILES['censo_file']['tmp_name'], $dir . '/' . $filename)) {
+                    $this->model->addAttachment($caseId, 'censo', $filename, $_FILES['censo_file']['name'], Auth::id());
+                }
+            }
+        }
+    }
+
+    public function deleteAttachment(string $id, string $attachmentId): void
+    {
+        Csrf::verifyRequest();
+        $case = $this->model->find((int) $id);
+        if (!$case) { H::redirect('/cases'); }
+        $this->authorizeEdit($case);
+
+        $attachment = $this->model->findAttachment((int) $id, (int) $attachmentId);
+        if ($attachment) {
+            $path = BASE_PATH . '/storage/uploads/cases/' . $id . '/' . $attachment['file_path'];
+            if (is_file($path)) unlink($path);
+            $this->model->deleteAttachment((int) $attachmentId);
+        }
+        H::redirect('/cases/' . $id . '/edit');
+    }
+
+    public function file(string $id, string $attachmentId): void
+    {
+        Auth::requireAbility('case.view');
+        $attachment = $this->model->findAttachment((int) $id, (int) $attachmentId);
+        if (!$attachment) {
+            http_response_code(404);
+            exit('Archivo no encontrado.');
+        }
+        $path = BASE_PATH . '/storage/uploads/cases/' . $id . '/' . $attachment['file_path'];
+        if (!is_file($path)) {
+            http_response_code(404);
+            exit('Archivo no encontrado.');
+        }
+        header('Content-Type: ' . (mime_content_type($path) ?: 'application/octet-stream'));
+        header('Content-Disposition: inline; filename="' . basename($attachment['original_name'] ?? $attachment['file_path']) . '"');
+        readfile($path);
+        exit;
+    }
+
+    // -----------------------------------------------------------------
+    // Flujo por roles: asignar (radio operador / coordinador), firmar
+    // (bombero asignado), aprobar (subcomandancia)
+    // -----------------------------------------------------------------
+    public function assign(string $id): void
+    {
+        Auth::requireAbility('case.assign');
+        Csrf::verifyRequest();
+        $case = $this->model->find((int) $id);
+        if (!$case) { H::redirect('/cases'); }
+
+        $assignedTo = (int) H::input('assigned_to');
+        $bomberoIds = array_column((new User())->allByRole('bombero'), 'id');
+        if (!$assignedTo || !in_array($assignedTo, $bomberoIds, true)) {
+            H::flash('danger', 'Seleccione un bombero valido para asignar el caso.');
+            H::redirect('/cases/' . $id);
+        }
+
+        $this->model->assign((int) $id, $assignedTo, Auth::id());
+        H::flash('success', 'Caso asignado correctamente.');
+        H::redirect('/cases/' . $id);
+    }
+
+    public function sign(string $id): void
+    {
+        Auth::requireAbility('case.sign');
+        Csrf::verifyRequest();
+        $case = $this->model->find((int) $id);
+        if (!$case) { H::redirect('/cases'); }
+
+        if (!Auth::isAdmin() && (int) ($case['assigned_to'] ?? 0) !== Auth::id()) {
+            http_response_code(403);
+            require BASE_PATH . '/views/errors/403.php';
+            exit;
+        }
+        if (!in_array($case['status'], ['asignado', 'en_atencion'], true)) {
+            H::flash('danger', 'Este caso no esta en un estado que permita firmarlo.');
+            H::redirect('/cases/' . $id);
+        }
+
+        $method = H::input('sign_method', 'codigo');
+        $signaturePath = null;
+
+        if ($method === 'dibujo' && H::input('signature_data')) {
+            $data = H::input('signature_data');
+            if (preg_match('/^data:image\/png;base64,(.+)$/', $data, $m)) {
+                $bytes = base64_decode($m[1]);
+                if ($bytes !== false && strlen($bytes) < 2_000_000) {
+                    $dir = BASE_PATH . '/storage/uploads/cases/' . $id;
+                    if (!is_dir($dir)) mkdir($dir, 0775, true);
+                    $filename = 'firma_' . bin2hex(random_bytes(6)) . '.png';
+                    file_put_contents($dir . '/' . $filename, $bytes);
+                    $attId = $this->model->addAttachment((int) $id, 'firma', $filename, 'firma.png', Auth::id());
+                    $signaturePath = $filename;
+                }
+            }
+        } elseif ($method === 'foto' && !empty($_FILES['signature_file']) && $_FILES['signature_file']['error'] === UPLOAD_ERR_OK) {
+            $mime = mime_content_type($_FILES['signature_file']['tmp_name']) ?: '';
+            $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+            if (isset($allowed[$mime])) {
+                $dir = BASE_PATH . '/storage/uploads/cases/' . $id;
+                if (!is_dir($dir)) mkdir($dir, 0775, true);
+                $filename = 'firma_' . bin2hex(random_bytes(6)) . '.' . $allowed[$mime];
+                if (move_uploaded_file($_FILES['signature_file']['tmp_name'], $dir . '/' . $filename)) {
+                    $this->model->addAttachment((int) $id, 'firma', $filename, $_FILES['signature_file']['name'], Auth::id());
+                    $signaturePath = $filename;
+                }
+            }
+        } elseif ($method === 'codigo') {
+            $expected = $_SESSION['sign_code_' . $id] ?? null;
+            $entered = H::input('sign_code');
+            if (!$expected || !$entered || !hash_equals((string) $expected, (string) $entered)) {
+                H::flash('danger', 'El codigo de confirmacion no es correcto o expiro. Genere uno nuevo e intente otra vez.');
+                H::redirect('/cases/' . $id);
+            }
+            unset($_SESSION['sign_code_' . $id]);
+        } else {
+            H::flash('danger', 'Debe dibujar la firma, subir una foto de la firma, o confirmar con el codigo.');
+            H::redirect('/cases/' . $id);
+        }
+
+        $this->model->sign((int) $id, Auth::id(), $method, $signaturePath);
+        H::flash('success', 'Caso firmado. Queda pendiente de aprobacion de Subcomandancia.');
+        H::redirect('/cases/' . $id);
+    }
+
+    /** Genera (o regenera) el codigo de confirmacion de firma para esta sesion. */
+    public function signCode(string $id): void
+    {
+        Auth::requireAbility('case.sign');
+        $code = (string) random_int(100000, 999999);
+        $_SESSION['sign_code_' . $id] = $code;
+        H::jsonResponse(['code' => $code]);
+    }
+
+    public function approve(string $id): void
+    {
+        Auth::requireAbility('case.approve');
+        Csrf::verifyRequest();
+        $case = $this->model->find((int) $id);
+        if (!$case) { H::redirect('/cases'); }
+
+        if ($case['status'] !== 'pendiente_aprobacion') {
+            H::flash('danger', 'Este caso no esta pendiente de aprobacion.');
+            H::redirect('/cases/' . $id);
+        }
+
+        $this->model->approve((int) $id, Auth::id());
+        H::flash('success', 'Caso aprobado y cerrado.');
         H::redirect('/cases/' . $id);
     }
 
@@ -227,10 +414,15 @@ class CaseController
         $animals = $_POST['animal'] ?? [];
         $firefighterNames = $_POST['firefighter_name'] ?? [];
         $firefighterRoles = $_POST['firefighter_role'] ?? [];
+        $firefighterVehicles = $_POST['firefighter_vehicle'] ?? [];
         $firefighters = [];
         foreach ($firefighterNames as $i => $name) {
             if (trim((string) $name) === '') continue;
-            $firefighters[] = ['name' => $name, 'role' => $firefighterRoles[$i] ?? null];
+            $firefighters[] = [
+                'name' => $name,
+                'role' => $firefighterRoles[$i] ?? null,
+                'vehicle_value' => $firefighterVehicles[$i] ?? null,
+            ];
         }
 
         return [$core, $formData, $buildings, $persons, $animals, $firefighters];
@@ -252,6 +444,10 @@ class CaseController
             'persons' => $this->model->getPersons((int) $id),
             'animals' => $this->model->getAnimals((int) $id),
             'firefighters' => $this->model->getFirefighters((int) $id),
+            'evidenceFiles' => $this->model->getAttachments((int) $id, 'evidencia'),
+            'censoFiles' => $this->model->getAttachments((int) $id, 'censo'),
+            'signatureFiles' => $this->model->getAttachments((int) $id, 'firma'),
+            'bomberos' => (new User())->allByRole('bombero'),
             'history' => CaseHistory::forCase((int) $id),
             'sections' => require BASE_PATH . '/config/form_sections.php',
         ]);
@@ -297,12 +493,34 @@ class CaseController
         $case = $this->model->find((int) $id);
         if (!$case) { H::redirect('/cases'); }
 
+        $uploadDir = BASE_PATH . '/storage/uploads/cases/' . $id . '/';
+        $toDataUri = function (array $attachment) use ($uploadDir): ?string {
+            $path = $uploadDir . $attachment['file_path'];
+            if (!is_file($path)) return null;
+            $mime = mime_content_type($path) ?: 'image/png';
+            return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($path));
+        };
+
+        $evidencePhotos = [];
+        foreach ($this->model->getAttachments((int) $id, 'evidencia') as $a) {
+            $uri = $toDataUri($a);
+            if ($uri) $evidencePhotos[] = ['uri' => $uri, 'name' => $a['original_name']];
+        }
+        $signatureAttachments = $this->model->getAttachments((int) $id, 'firma');
+        $signaturePhoto = null;
+        if ($case['signature_path']) {
+            $match = array_values(array_filter($signatureAttachments, fn($a) => $a['file_path'] === $case['signature_path']));
+            if ($match) $signaturePhoto = $toDataUri($match[0]);
+        }
+
         $data = [
             'case' => $case,
             'buildings' => $this->model->getBuildings((int) $id),
             'persons' => $this->model->getPersons((int) $id),
             'animals' => $this->model->getAnimals((int) $id),
             'firefighters' => $this->model->getFirefighters((int) $id),
+            'evidencePhotos' => $evidencePhotos,
+            'signaturePhoto' => $signaturePhoto,
             'history' => CaseHistory::forCase((int) $id),
             'sections' => require BASE_PATH . '/config/form_sections.php',
             'entityName' => Setting::get('entity_name', 'Cuerpo de Bomberos'),

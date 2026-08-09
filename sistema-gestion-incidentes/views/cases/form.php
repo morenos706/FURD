@@ -7,7 +7,8 @@ use App\Models\Catalog;
 $isEdit = !empty($case);
 $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
 ?>
-<form method="post" action="<?= H::url($action) ?>" id="caseForm">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<form method="post" action="<?= H::url($action) ?>" id="caseForm" enctype="multipart/form-data">
   <?= Csrf::field() ?>
 
   <ul class="nav nav-pills mb-3 flex-wrap gap-1" id="caseTabs" role="tablist">
@@ -31,7 +32,7 @@ $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
         <div class="row">
           <div class="col-md-4 mb-3">
             <label class="form-label small fw-semibold">Servicio *</label>
-            <select name="service_type" class="form-select" required>
+            <select name="service_type" id="serviceTypeSelect" class="form-select" required>
               <option value="">-- Seleccione --</option>
               <?php foreach (Catalog::items('list_servicio') as $s): ?>
                 <option value="<?= H::e($s['item_value']) ?>" <?= ($case['service_type'] ?? '') === $s['item_value'] ? 'selected' : '' ?>><?= H::e($s['item_label']) ?></option>
@@ -101,11 +102,15 @@ $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
           </div>
           <div class="col-md-3 mb-3">
             <label class="form-label small fw-semibold">Latitud</label>
-            <input type="text" name="latitude" class="form-control" value="<?= H::e($case['latitude'] ?? '') ?>">
+            <input type="text" name="latitude" id="mapLatitude" class="form-control" value="<?= H::e($case['latitude'] ?? '') ?>">
           </div>
           <div class="col-md-3 mb-3">
             <label class="form-label small fw-semibold">Longitud</label>
-            <input type="text" name="longitude" class="form-control" value="<?= H::e($case['longitude'] ?? '') ?>">
+            <input type="text" name="longitude" id="mapLongitude" class="form-control" value="<?= H::e($case['longitude'] ?? '') ?>">
+          </div>
+          <div class="col-12 mb-3">
+            <label class="form-label small fw-semibold">Ubique el punto del incidente en el mapa (clic o arrastre el marcador)</label>
+            <div id="incidentMap" style="height:320px; border-radius:.5rem;" data-lat="<?= H::e($case['latitude'] ?? '') ?>" data-lng="<?= H::e($case['longitude'] ?? '') ?>"></div>
           </div>
         </div>
       </div>
@@ -184,8 +189,8 @@ $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
       </div>
     </div>
 
-    <!-- ============ SECCIONES DINAMICAS RESTANTES (forestal, acciones, sci, finalizacion) ============ -->
-    <?php foreach ($sections as $slug => $section): if ($slug === 'informacion_general') continue; ?>
+    <!-- ============ SECCIONES DINAMICAS RESTANTES (forestal, acciones, sci) ============ -->
+    <?php foreach ($sections as $slug => $section): if (in_array($slug, ['informacion_general', 'finalizacion'], true)) continue; ?>
     <div class="tab-pane fade" id="tab-<?= H::e($slug) ?>">
       <div class="section-card">
         <div class="form-section-title"><?= H::e($section['label']) ?></div>
@@ -195,6 +200,60 @@ $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
       </div>
     </div>
     <?php endforeach; ?>
+
+    <!-- ============ EVIDENCIAS Y RESPONSABLE (fotos + censo + identificacion) ============ -->
+    <div class="tab-pane fade" id="tab-finalizacion">
+      <div class="section-card mb-3">
+        <div class="form-section-title">Evidencias Fotograficas</div>
+        <p class="text-muted small">Puede seleccionar varias fotos a la vez (formatos JPG, PNG o WEBP).</p>
+        <input type="file" name="evidencia_files[]" class="form-control mb-3" accept="image/jpeg,image/png,image/webp" multiple>
+        <?php if (!empty($evidenceFiles)): ?>
+        <div class="d-flex flex-wrap gap-2">
+          <?php foreach ($evidenceFiles as $ev): ?>
+          <div class="position-relative">
+            <a href="<?= H::url('/cases/' . $case['id'] . '/files/' . $ev['id']) ?>" target="_blank">
+              <img src="<?= H::url('/cases/' . $case['id'] . '/files/' . $ev['id']) ?>" alt="Evidencia" style="width:110px;height:110px;object-fit:cover;border-radius:.5rem;border:1px solid #dee2e6;">
+            </a>
+            <form action="<?= H::url('/cases/' . $case['id'] . '/files/' . $ev['id'] . '/delete') ?>" method="post" class="position-absolute top-0 end-0 m-1" data-confirm="¿Eliminar esta foto?">
+              <?= Csrf::field() ?>
+              <button type="submit" class="btn btn-sm btn-danger py-0 px-1"><i class="bi bi-x"></i></button>
+            </form>
+          </div>
+          <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+      </div>
+
+      <div class="section-card mb-3">
+        <div class="form-section-title">Anexe Censo</div>
+        <input type="file" name="censo_file" class="form-control mb-2" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx">
+        <?php if (!empty($censoFiles)): ?>
+          <?php foreach ($censoFiles as $cf): ?>
+            <div class="small"><i class="bi bi-paperclip"></i> <a href="<?= H::url('/cases/' . $case['id'] . '/files/' . $cf['id']) ?>" target="_blank"><?= H::e($cf['original_name'] ?? $cf['file_path']) ?></a>
+              <form action="<?= H::url('/cases/' . $case['id'] . '/files/' . $cf['id'] . '/delete') ?>" method="post" class="d-inline" data-confirm="¿Eliminar este archivo?">
+                <?= Csrf::field() ?>
+                <button type="submit" class="btn btn-sm btn-link text-danger p-0 ms-1">Eliminar</button>
+              </form>
+            </div>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </div>
+
+      <div class="section-card">
+        <div class="form-section-title">Responsable del Registro</div>
+        <div class="row">
+          <?php foreach ($sections['finalizacion']['fields'] as $f):
+              if (in_array($f['name'], ['evidencia_1', 'evidencia_2', 'evidencia_3', 'anexe_censo', 'firma'], true)) continue;
+              echo FormRenderer::field($f, $formData[$f['name']] ?? null);
+          endforeach; ?>
+        </div>
+        <?php if ($isEdit): ?>
+          <div class="alert alert-info small mb-0"><i class="bi bi-info-circle"></i> La firma digital del responsable se realiza desde la vista del caso (boton "Firmar") una vez guardado este registro, en el estado Asignado o En Atencion.</div>
+        <?php else: ?>
+          <div class="alert alert-secondary small mb-0"><i class="bi bi-info-circle"></i> Guarde el caso primero; la firma digital se habilita luego desde la vista del caso.</div>
+        <?php endif; ?>
+      </div>
+    </div>
 
     <!-- ============ PERSONAS AFECTADAS ============ -->
     <div class="tab-pane fade" id="tab-persons">
@@ -293,26 +352,30 @@ $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
           <div class="col-md-8">
             <label class="form-label small fw-semibold">Vehiculos</label>
             <?php $selectedVeh = (array) ($formData['vehiculos'] ?? []); ?>
-            <div class="border rounded p-2" style="max-height:120px; overflow-y:auto;">
+            <div class="border rounded p-2" id="vehiculosChecklist" style="max-height:120px; overflow-y:auto;">
               <?php foreach ($vehiculos as $v): ?>
                 <div class="form-check form-check-inline">
-                  <input class="form-check-input" type="checkbox" name="fd[vehiculos][]" value="<?= H::e($v['item_value']) ?>" <?= in_array($v['item_value'], $selectedVeh, true) ? 'checked' : '' ?>>
+                  <input class="form-check-input vehiculo-check" type="checkbox" name="fd[vehiculos][]" value="<?= H::e($v['item_value']) ?>" data-label="<?= H::e($v['item_label']) ?>" <?= in_array($v['item_value'], $selectedVeh, true) ? 'checked' : '' ?>>
                   <label class="form-check-label small"><?= H::e($v['item_label']) ?></label>
                 </div>
               <?php endforeach; ?>
             </div>
+            <div class="form-text">Marque los vehiculos con los que se desplazo la tripulacion; luego indique en que vehiculo iba cada bombero.</div>
           </div>
         </div>
 
         <div class="d-flex justify-content-between align-items-center mb-2">
           <div class="form-section-title mb-0">Bomberos que Actuaron en la Emergencia</div>
-          <button type="button" class="btn btn-sm btn-outline-danger" onclick="addRepeatRow('firefightersContainer', document.getElementById('firefighterTemplate').innerHTML)"><i class="bi bi-plus-lg"></i> Agregar</button>
+          <button type="button" class="btn btn-sm btn-outline-danger" onclick="addRepeatRow('firefightersContainer', document.getElementById('firefighterTemplate').innerHTML); refreshFirefighterVehicleOptions();"><i class="bi bi-plus-lg"></i> Agregar</button>
         </div>
         <div id="firefightersContainer">
           <?php $ffRows = $firefighters ?: [[]]; foreach ($ffRows as $f): ?>
           <div class="repeat-row d-flex gap-2 mb-2">
             <input type="text" name="firefighter_name[]" class="form-control form-control-sm" placeholder="Nombre del Bombero" value="<?= H::e($f['firefighter_name'] ?? '') ?>">
             <input type="text" name="firefighter_role[]" class="form-control form-control-sm" placeholder="Rol / Cargo" value="<?= H::e($f['role'] ?? '') ?>">
+            <select name="firefighter_vehicle[]" class="form-select form-select-sm firefighter-vehicle-select" data-selected="<?= H::e($f['vehicle_value'] ?? '') ?>">
+              <option value="">-- Vehiculo --</option>
+            </select>
             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="removeRepeatRow(this)"><i class="bi bi-x"></i></button>
           </div>
           <?php endforeach; ?>
@@ -320,6 +383,9 @@ $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
         <template id="firefighterTemplate"><div class="repeat-row d-flex gap-2 mb-2">
           <input type="text" name="firefighter_name[]" class="form-control form-control-sm" placeholder="Nombre del Bombero">
           <input type="text" name="firefighter_role[]" class="form-control form-control-sm" placeholder="Rol / Cargo">
+          <select name="firefighter_vehicle[]" class="form-select form-select-sm firefighter-vehicle-select">
+            <option value="">-- Vehiculo --</option>
+          </select>
           <button type="button" class="btn btn-sm btn-outline-secondary" onclick="removeRepeatRow(this)"><i class="bi bi-x"></i></button>
         </div></template>
       </div>
@@ -366,3 +432,90 @@ $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
     <button type="submit" class="btn btn-danger px-4"><i class="bi bi-save"></i> Guardar Registro</button>
   </div>
 </form>
+
+<?php $extraScripts = '<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  // ---- Mapa de ubicacion del incidente ----
+  var mapEl = document.getElementById("incidentMap");
+  if (mapEl && window.L) {
+    var latInput = document.getElementById("mapLatitude");
+    var lngInput = document.getElementById("mapLongitude");
+    var startLat = parseFloat(mapEl.dataset.lat) || 4.5709;
+    var startLng = parseFloat(mapEl.dataset.lng) || -74.2973;
+    var startZoom = (mapEl.dataset.lat && mapEl.dataset.lng) ? 15 : 6;
+
+    var map = L.map("incidentMap").setView([startLat, startLng], startZoom);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap",
+      maxZoom: 19
+    }).addTo(map);
+
+    var marker = null;
+    function placeMarker(lat, lng) {
+      if (marker) { marker.setLatLng([lat, lng]); }
+      else {
+        marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        marker.on("dragend", function () {
+          var pos = marker.getLatLng();
+          latInput.value = pos.lat.toFixed(6);
+          lngInput.value = pos.lng.toFixed(6);
+        });
+      }
+      latInput.value = lat.toFixed(6);
+      lngInput.value = lng.toFixed(6);
+    }
+
+    if (mapEl.dataset.lat && mapEl.dataset.lng) {
+      placeMarker(startLat, startLng);
+    }
+
+    map.on("click", function (e) {
+      placeMarker(e.latlng.lat, e.latlng.lng);
+    });
+
+    setTimeout(function () { map.invalidateSize(); }, 300);
+  }
+
+  // ---- Clase de Servicio dependiente del Servicio seleccionado ----
+  var serviceSelect = document.getElementById("serviceTypeSelect");
+  function toggleClaseServicio() {
+    if (!serviceSelect) return;
+    var value = serviceSelect.value || "";
+    var match = value.match(/^(\\d+)\\./);
+    var num = match ? match[1] : null;
+    document.querySelectorAll(".clase-servicio-field").forEach(function (field) {
+      field.style.display = (num && field.dataset.claseServicio === num) ? "" : "none";
+    });
+  }
+  if (serviceSelect) {
+    serviceSelect.addEventListener("change", toggleClaseServicio);
+    toggleClaseServicio();
+  }
+
+  // ---- Vinculo bombero <-> vehiculo ----
+  window.refreshFirefighterVehicleOptions = function () {
+    var vehicles = [];
+    document.querySelectorAll(".vehiculo-check:checked").forEach(function (cb) {
+      vehicles.push({ value: cb.value, label: cb.dataset.label || cb.value });
+    });
+    document.querySelectorAll(".firefighter-vehicle-select").forEach(function (sel) {
+      var current = sel.dataset.selected !== undefined && sel.dataset.selected !== "" ? sel.dataset.selected : sel.value;
+      sel.innerHTML = "<option value=\\"\\">-- Vehiculo --</option>";
+      vehicles.forEach(function (v) {
+        var opt = document.createElement("option");
+        opt.value = v.value;
+        opt.textContent = v.label;
+        if (v.value === current) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.removeAttribute("data-selected");
+    });
+  };
+  document.querySelectorAll(".vehiculo-check").forEach(function (cb) {
+    cb.addEventListener("change", window.refreshFirefighterVehicleOptions);
+  });
+  window.refreshFirefighterVehicleOptions();
+});
+</script>';
+?>

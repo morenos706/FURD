@@ -103,6 +103,15 @@ CREATE TABLE IF NOT EXISTS cases (
     status              VARCHAR(30) NOT NULL DEFAULT 'abierto',
     priority            VARCHAR(20) NOT NULL DEFAULT 'media',
     responsible_user_id INT DEFAULT NULL,
+    assigned_to         INT DEFAULT NULL,    -- bombero asignado por el radio operador
+    assigned_by         INT DEFAULT NULL,
+    assigned_at         DATETIME DEFAULT NULL,
+    signed_by           INT DEFAULT NULL,
+    signed_at           DATETIME DEFAULT NULL,
+    sign_method         VARCHAR(20) DEFAULT NULL,   -- dibujo | foto | codigo
+    signature_path      VARCHAR(255) DEFAULT NULL,
+    approved_by         INT DEFAULT NULL,    -- subcomandancia
+    approved_at         DATETIME DEFAULT NULL,
     form_data           JSON DEFAULT NULL,   -- resto de los ~200 campos del FURD
     is_demo             TINYINT(1) NOT NULL DEFAULT 0,
     created_by          INT DEFAULT NULL,
@@ -113,12 +122,16 @@ CREATE TABLE IF NOT EXISTS cases (
     deleted_at          DATETIME DEFAULT NULL,
     CONSTRAINT fk_cases_responsible FOREIGN KEY (responsible_user_id) REFERENCES users(id),
     CONSTRAINT fk_cases_created_by FOREIGN KEY (created_by) REFERENCES users(id),
+    CONSTRAINT fk_cases_assigned_to FOREIGN KEY (assigned_to) REFERENCES users(id),
+    CONSTRAINT fk_cases_signed_by FOREIGN KEY (signed_by) REFERENCES users(id),
+    CONSTRAINT fk_cases_approved_by FOREIGN KEY (approved_by) REFERENCES users(id),
     INDEX idx_cases_date (incident_date),
     INDEX idx_cases_status (status),
     INDEX idx_cases_service (service_type(100)),
     INDEX idx_cases_comuna (comuna),
     INDEX idx_cases_barrio (barrio(100)),
     INDEX idx_cases_responsible (responsible_user_id),
+    INDEX idx_cases_assigned_to (assigned_to),
     FULLTEXT INDEX ft_cases_search (case_number, address, description, incident_commander)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -191,8 +204,22 @@ CREATE TABLE IF NOT EXISTS case_firefighters (
     seq         INT NOT NULL DEFAULT 1,
     firefighter_name VARCHAR(190) DEFAULT NULL,
     role        VARCHAR(120) DEFAULT NULL,
+    vehicle_value VARCHAR(190) DEFAULT NULL,  -- item_value de list_vehiculos: en que vehiculo se desplazo
     CONSTRAINT fk_firefighters_case FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
     INDEX idx_firefighters_case (case_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Adjuntos: fotos de evidencia, censo, firma subida/dibujada
+CREATE TABLE IF NOT EXISTS case_attachments (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    case_id       INT NOT NULL,
+    kind          VARCHAR(30) NOT NULL,   -- evidencia | censo | firma
+    file_path     VARCHAR(255) NOT NULL,
+    original_name VARCHAR(255) DEFAULT NULL,
+    uploaded_by   INT DEFAULT NULL,
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_attachments_case FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
+    INDEX idx_attachments_case (case_id, kind)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------------------------------------------------------------
@@ -249,15 +276,19 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- DATOS INICIALES
 -- =====================================================================
 INSERT INTO roles (code, name, description) VALUES
-('admin',   'Administrador', 'Acceso total al sistema, usuarios y configuracion'),
-('usuario', 'Usuario',       'Crea, consulta y edita casos segun sus permisos'),
-('consulta','Consulta',      'Solo puede consultar, buscar, filtrar y ver estadisticas')
+('admin',              'Administrador',        'Acceso total al sistema, usuarios y configuracion'),
+('radio_operador',     'Radio Operador',       'Crea los casos y los asigna a un bombero'),
+('bombero',            'Bombero',              'Diligencia los casos que le sean asignados'),
+('coordinador_turno',  'Coordinador de Turno', 'Supervisa la asignacion y el avance de los casos del turno'),
+('subcomandancia',     'Subcomandancia',       'Aprueba el cierre de los casos ya firmados')
 ON DUPLICATE KEY UPDATE name = VALUES(name);
 
 INSERT INTO case_statuses (code, label, color, sort_order) VALUES
-('abierto',      'Abierto',        'warning', 1),
-('en_atencion',  'En Atencion',    'info',    2),
-('cerrado',      'Cerrado',        'success', 3)
+('abierto',               'Abierto',                  'secondary', 1),
+('asignado',              'Asignado',                 'primary',   2),
+('en_atencion',           'En Atencion',              'info',      3),
+('pendiente_aprobacion',  'Pendiente de Aprobacion',  'warning',   4),
+('cerrado',               'Cerrado',                  'success',   5)
 ON DUPLICATE KEY UPDATE label = VALUES(label);
 
 INSERT INTO system_settings (setting_key, setting_value) VALUES
