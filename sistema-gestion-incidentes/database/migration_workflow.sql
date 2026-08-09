@@ -133,3 +133,10 @@ CREATE TABLE IF NOT EXISTS case_sci_objectives (
 INSERT INTO system_settings (setting_key, setting_value) VALUES
 ('login_bg_path', '')
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+-- Logo y fondo por defecto (Bomberos Voluntarios Itagui), solo si el
+-- admin todavia no subio uno propio desde Configuracion.
+UPDATE system_settings SET setting_value = '/branding/logo.jpg'
+    WHERE setting_key = 'logo_path' AND (setting_value IS NULL OR setting_value = '');
+UPDATE system_settings SET setting_value = '/branding/login_bg.jpg'
+    WHERE setting_key = 'login_bg_path' AND (setting_value IS NULL OR setting_value = '');
