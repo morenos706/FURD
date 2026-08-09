@@ -116,6 +116,18 @@ $canApprove = Auth::can('case.approve') && $case['status'] === 'pendiente_aproba
     </div>
     <?php endif; ?>
 
+    <?php if ($sciObjectives): ?>
+    <div class="section-card mb-3">
+      <div class="form-section-title">Objetivos, Estrategias y Tacticas (SCI)</div>
+      <div class="table-responsive"><table class="table table-sm">
+        <thead><tr><th>Objetivo</th><th>Estrategia y Tactica</th></tr></thead>
+        <tbody><?php foreach ($sciObjectives as $s): ?>
+          <tr><td><?= nl2br(H::e($s['objective'] ?: '-')) ?></td><td><?= nl2br(H::e($s['strategy_tactic'] ?: '-')) ?></td></tr>
+        <?php endforeach; ?></tbody>
+      </table></div>
+    </div>
+    <?php endif; ?>
+
     <?php foreach ($sections as $slug => $section):
         $rows = array_filter($section['fields'], fn($f) => !empty($fd[$f['name']]) && !is_array($fd[$f['name']]));
         if (!$rows) continue; ?>

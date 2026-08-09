@@ -112,3 +112,17 @@ ALTER TABLE case_firefighters ADD COLUMN IF NOT EXISTS vehicle_value VARCHAR(190
 -- ---------------------------------------------------------------------
 ALTER TABLE users ADD COLUMN IF NOT EXISTS security_pin_hash VARCHAR(255) DEFAULT NULL AFTER password_hash;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS signature_path VARCHAR(255) DEFAULT NULL AFTER security_pin_hash;
+
+-- ---------------------------------------------------------------------
+-- SCI: objetivos, estrategias y tacticas repetibles (uno o varios por
+-- caso, en vez de un solo texto libre).
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS case_sci_objectives (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    case_id     INT NOT NULL,
+    seq         INT NOT NULL DEFAULT 1,
+    objective   TEXT DEFAULT NULL,
+    strategy_tactic TEXT DEFAULT NULL,
+    CONSTRAINT fk_sci_objectives_case FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
+    INDEX idx_sci_objectives_case (case_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

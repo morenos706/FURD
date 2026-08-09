@@ -204,12 +204,43 @@ $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
     <!-- ============ SECCIONES DINAMICAS RESTANTES (forestal, acciones, sci) ============ -->
     <?php foreach ($sections as $slug => $section): if (in_array($slug, ['informacion_general', 'finalizacion'], true)) continue; ?>
     <div class="tab-pane fade" id="tab-<?= H::e($slug) ?>">
-      <div class="section-card">
+      <div class="section-card mb-3">
         <div class="form-section-title"><?= H::e($section['label']) ?></div>
         <div class="row">
-          <?php foreach ($section['fields'] as $f): echo FormRenderer::field($f, $formData[$f['name']] ?? null); endforeach; ?>
+          <?php foreach ($section['fields'] as $f):
+              if ($slug === 'sci' && in_array($f['name'], ['objetivos', 'estretegias_y_tacticas'], true)) continue;
+              echo FormRenderer::field($f, $formData[$f['name']] ?? null);
+          endforeach; ?>
         </div>
       </div>
+
+      <?php if ($slug === 'sci'): ?>
+      <div class="section-card">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="form-section-title mb-0">Objetivos, Estrategias y Tacticas</div>
+          <button type="button" class="btn btn-sm btn-outline-danger" onclick="addRepeatRow('sciObjectivesContainer', document.getElementById('sciObjectiveTemplate').innerHTML)"><i class="bi bi-plus-lg"></i> Agregar</button>
+        </div>
+        <p class="text-muted small">Agregue una fila por cada objetivo con su estrategia/tactica asociada (ej. objetivo 1 con su estrategia 1.1, objetivo 2 con su estrategia 2.1, etc.).</p>
+        <div id="sciObjectivesContainer">
+          <?php $sciRows = $sciObjectives ?: [[]]; foreach ($sciRows as $i => $s): ?>
+          <div class="repeat-row border rounded p-3 mb-2 position-relative">
+            <button type="button" class="btn-close position-absolute top-0 end-0 m-2" onclick="removeRepeatRow(this)"></button>
+            <div class="row">
+              <div class="col-md-6 mb-2"><label class="form-label small">Objetivo</label><textarea name="sci_objective[<?= $i ?>][objective]" class="form-control form-control-sm" rows="2"><?= H::e($s['objective'] ?? '') ?></textarea></div>
+              <div class="col-md-6 mb-2"><label class="form-label small">Estrategia y Tactica</label><textarea name="sci_objective[<?= $i ?>][strategy_tactic]" class="form-control form-control-sm" rows="2"><?= H::e($s['strategy_tactic'] ?? '') ?></textarea></div>
+            </div>
+          </div>
+          <?php endforeach; ?>
+        </div>
+        <template id="sciObjectiveTemplate"><div class="repeat-row border rounded p-3 mb-2 position-relative">
+          <button type="button" class="btn-close position-absolute top-0 end-0 m-2" onclick="removeRepeatRow(this)"></button>
+          <div class="row">
+            <div class="col-md-6 mb-2"><label class="form-label small">Objetivo</label><textarea name="sci_objective[__INDEX__][objective]" class="form-control form-control-sm" rows="2"></textarea></div>
+            <div class="col-md-6 mb-2"><label class="form-label small">Estrategia y Tactica</label><textarea name="sci_objective[__INDEX__][strategy_tactic]" class="form-control form-control-sm" rows="2"></textarea></div>
+          </div>
+        </div></template>
+      </div>
+      <?php endif; ?>
     </div>
     <?php endforeach; ?>
 

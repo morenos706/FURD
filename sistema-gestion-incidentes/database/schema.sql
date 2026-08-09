@@ -211,6 +211,17 @@ CREATE TABLE IF NOT EXISTS case_firefighters (
     INDEX idx_firefighters_case (case_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- SCI: objetivos, estrategias y tacticas repetibles del PAI
+CREATE TABLE IF NOT EXISTS case_sci_objectives (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    case_id     INT NOT NULL,
+    seq         INT NOT NULL DEFAULT 1,
+    objective   TEXT DEFAULT NULL,
+    strategy_tactic TEXT DEFAULT NULL,
+    CONSTRAINT fk_sci_objectives_case FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
+    INDEX idx_sci_objectives_case (case_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Adjuntos: fotos de evidencia, censo, firma subida/dibujada
 CREATE TABLE IF NOT EXISTS case_attachments (
     id            INT AUTO_INCREMENT PRIMARY KEY,

@@ -126,6 +126,7 @@ class CaseController
             'persons' => $case ? $this->model->getPersons((int) $case['id']) : [],
             'animals' => $case ? $this->model->getAnimals((int) $case['id']) : [],
             'firefighters' => $case ? $this->model->getFirefighters((int) $case['id']) : [],
+            'sciObjectives' => $case ? $this->model->getSciObjectives((int) $case['id']) : [],
             'evidenceFiles' => $case ? $this->model->getAttachments((int) $case['id'], 'evidencia') : [],
             'censoFiles' => $case ? $this->model->getAttachments((int) $case['id'], 'censo') : [],
             'sections' => $sections,
@@ -151,7 +152,7 @@ class CaseController
         Auth::requireAbility('case.create');
         Csrf::verifyRequest();
 
-        [$core, $formData, $buildings, $persons, $animals, $firefighters] = $this->extractInput();
+        [$core, $formData, $buildings, $persons, $animals, $firefighters, $sciObjectives] = $this->extractInput();
 
         $errors = $this->validate($core);
         if ($errors) {
@@ -164,6 +165,7 @@ class CaseController
         $this->model->replacePersons($id, $persons);
         $this->model->replaceAnimals($id, $animals);
         $this->model->replaceFirefighters($id, $firefighters);
+        $this->model->replaceSciObjectives($id, $sciObjectives);
         $this->storeUploads($id);
 
         H::flash('success', 'Registro guardado correctamente.');
@@ -182,7 +184,7 @@ class CaseController
             $this->requirePin('/cases/' . $id . '/edit', 'unlock_pin');
         }
 
-        [$core, $formData, $buildings, $persons, $animals, $firefighters] = $this->extractInput();
+        [$core, $formData, $buildings, $persons, $animals, $firefighters, $sciObjectives] = $this->extractInput();
 
         $errors = $this->validate($core);
         if ($errors) {
@@ -195,6 +197,7 @@ class CaseController
         $this->model->replacePersons((int) $id, $persons);
         $this->model->replaceAnimals((int) $id, $animals);
         $this->model->replaceFirefighters((int) $id, $firefighters);
+        $this->model->replaceSciObjectives((int) $id, $sciObjectives);
         $this->storeUploads((int) $id);
 
         H::flash('success', 'Registro actualizado correctamente.');
@@ -470,7 +473,9 @@ class CaseController
             ];
         }
 
-        return [$core, $formData, $buildings, $persons, $animals, $firefighters];
+        $sciObjectives = $_POST['sci_objective'] ?? [];
+
+        return [$core, $formData, $buildings, $persons, $animals, $firefighters, $sciObjectives];
     }
 
     // -----------------------------------------------------------------
@@ -489,6 +494,7 @@ class CaseController
             'persons' => $this->model->getPersons((int) $id),
             'animals' => $this->model->getAnimals((int) $id),
             'firefighters' => $this->model->getFirefighters((int) $id),
+            'sciObjectives' => $this->model->getSciObjectives((int) $id),
             'evidenceFiles' => $this->model->getAttachments((int) $id, 'evidencia'),
             'censoFiles' => $this->model->getAttachments((int) $id, 'censo'),
             'signatureFiles' => $this->model->getAttachments((int) $id, 'firma'),
@@ -565,6 +571,7 @@ class CaseController
             'persons' => $this->model->getPersons((int) $id),
             'animals' => $this->model->getAnimals((int) $id),
             'firefighters' => $this->model->getFirefighters((int) $id),
+            'sciObjectives' => $this->model->getSciObjectives((int) $id),
             'evidencePhotos' => $evidencePhotos,
             'signaturePhoto' => $signaturePhoto,
             'history' => CaseHistory::forCase((int) $id),

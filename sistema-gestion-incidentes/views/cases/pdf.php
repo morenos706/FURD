@@ -90,6 +90,16 @@ $fd = $case['form_data_decoded'] ?? [];
   </table>
   <?php endif; ?>
 
+  <?php if (!empty($sciObjectives)): ?>
+  <h2 class="section">Objetivos, Estrategias y Tacticas (SCI)</h2>
+  <table class="list">
+    <tr><th>Objetivo</th><th>Estrategia y Tactica</th></tr>
+    <?php foreach ($sciObjectives as $s): ?>
+      <tr><td><?= nl2br(H::e($s['objective'] ?: '-')) ?></td><td><?= nl2br(H::e($s['strategy_tactic'] ?: '-')) ?></td></tr>
+    <?php endforeach; ?>
+  </table>
+  <?php endif; ?>
+
   <?php foreach ($sections as $slug => $section):
       $rows = array_filter($section['fields'], fn($f) => !empty($fd[$f['name']]) && !is_array($fd[$f['name']]));
       if (!$rows) continue; ?>

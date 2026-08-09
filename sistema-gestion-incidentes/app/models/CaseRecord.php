@@ -433,6 +433,30 @@ class CaseRecord
         $this->db->prepare('DELETE FROM case_attachments WHERE id = :id')->execute(['id' => $attachmentId]);
     }
 
+    public function replaceSciObjectives(int $caseId, array $rows): void
+    {
+        $this->db->prepare('DELETE FROM case_sci_objectives WHERE case_id = :id')->execute(['id' => $caseId]);
+        $stmt = $this->db->prepare(
+            'INSERT INTO case_sci_objectives (case_id, seq, objective, strategy_tactic)
+             VALUES (:case_id, :seq, :objective, :strategy_tactic)'
+        );
+        $seq = 1;
+        foreach ($rows as $r) {
+            if (empty(array_filter($r))) continue;
+            $stmt->execute([
+                'case_id' => $caseId, 'seq' => $seq++,
+                'objective' => $r['objective'] ?? null, 'strategy_tactic' => $r['strategy_tactic'] ?? null,
+            ]);
+        }
+    }
+
+    public function getSciObjectives(int $caseId): array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM case_sci_objectives WHERE case_id = :id ORDER BY seq');
+        $stmt->execute(['id' => $caseId]);
+        return $stmt->fetchAll();
+    }
+
     public function getBuildings(int $caseId): array
     {
         $stmt = $this->db->prepare('SELECT * FROM case_buildings WHERE case_id = :id ORDER BY seq');
