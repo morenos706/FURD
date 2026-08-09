@@ -1,4 +1,23 @@
-<?php use App\Helpers\Helpers as H; use App\Helpers\Csrf; ?>
+<?php use App\Helpers\Helpers as H; use App\Helpers\Csrf; use App\Helpers\Auth; ?>
+<?php if (Auth::isAdmin()): ?>
+<div class="section-card mb-3" style="border-left:4px solid #c0392b;">
+  <div class="form-section-title"><i class="bi bi-graph-up-arrow me-1"></i>Informe Ejecutivo (Administrador)</div>
+  <p class="text-muted small mb-3">Resumen gerencial en PDF: KPIs, tiempos de respuesta, y desgloses por estado, servicio, comuna y responsable, para el rango de fechas que elija.</p>
+  <form method="get" action="<?= H::url('/reports/executive') ?>" target="_blank" class="row g-2 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label small mb-1">Desde</label>
+      <input type="date" name="date_from" class="form-control form-control-sm" value="<?= H::e(date('Y-m-01')) ?>">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small mb-1">Hasta</label>
+      <input type="date" name="date_to" class="form-control form-control-sm" value="<?= H::e(date('Y-m-d')) ?>">
+    </div>
+    <div class="col-md-3">
+      <button class="btn btn-danger btn-sm"><i class="bi bi-file-earmark-pdf"></i> Generar Informe Ejecutivo</button>
+    </div>
+  </form>
+</div>
+<?php endif; ?>
 <div class="row g-3">
   <div class="col-lg-4">
     <div class="section-card mb-3">

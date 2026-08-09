@@ -62,6 +62,7 @@ $router->post('/profile/pin', [new ProfileController(), 'setPin']);
 // Reportes
 $router->get('/reports', [new ReportController(), 'index']);
 $router->post('/reports/generate', [new ReportController(), 'generate']);
+$router->get('/reports/executive', [new ReportController(), 'executive']);
 
 // Exportaciones
 $router->get('/export', [new ExportController(), 'index']);

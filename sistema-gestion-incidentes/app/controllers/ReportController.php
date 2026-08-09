@@ -116,4 +116,79 @@ class ReportController
         fclose($out);
         exit;
     }
+
+    /** Informe Ejecutivo (PDF con KPIs, tiempos de respuesta y desgloses) para un rango de fechas. Solo Administrador. */
+    public function executive(): void
+    {
+        Auth::requireLogin();
+        if (!Auth::isAdmin()) {
+            http_response_code(403);
+            require BASE_PATH . '/views/errors/403.php';
+            exit;
+        }
+
+        $dateFrom = H::input('date_from') ?: date('Y-m-01');
+        $dateTo = H::input('date_to') ?: date('Y-m-d');
+        $filters = ['date_from' => $dateFrom, 'date_to' => $dateTo];
+
+        $model = new CaseRecord();
+        $usersById = [];
+        foreach ((new User())->all() as $u) { $usersById[$u['id']] = $u['full_name']; }
+
+        $byResponsible = $model->countByField('responsible_user_id', $filters, 10);
+        foreach ($byResponsible as &$r) { $r['label'] = $usersById[$r['label']] ?? ('Usuario #' . $r['label']); }
+        unset($r);
+
+        $data = [
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'kpis' => $model->kpis($filters),
+            'affected' => $model->affectedTotals($filters),
+            'byStatus' => $model->countByField('status', $filters, 6),
+            'byService' => $model->countByField('service_type', $filters, 10),
+            'byComuna' => $model->countByField('comuna', $filters, 10),
+            'byResponsible' => $byResponsible,
+            'responseTime' => $model->responseTimeStats($filters),
+            'responseTimeByService' => $model->responseTimeByService($filters, 10),
+            'entityName' => \App\Models\Setting::get('entity_name', 'Cuerpo de Bomberos'),
+            'systemName' => \App\Models\Setting::get('system_name', 'Sistema de Gestion de Incidentes'),
+            'logoDataUri' => $this->logoDataUri(),
+            'generatedBy' => Auth::user()['full_name'] ?? '',
+            'generatedAt' => date('d/m/Y H:i'),
+        ];
+        extract($data);
+
+        ob_start();
+        require BASE_PATH . '/views/reports/executive_pdf.php';
+        $html = ob_get_clean();
+
+        \App\Models\AuditLog::record(Auth::id(), 'GENERAR_INFORME_EJECUTIVO', 'report', 'ejecutivo', null, $filters);
+
+        if (class_exists('\Dompdf\Dompdf')) {
+            $options = new \Dompdf\Options();
+            $options->set('isRemoteEnabled', true);
+            $options->set('defaultFont', 'DejaVu Sans');
+            $dompdf = new \Dompdf\Dompdf($options);
+            $dompdf->loadHtml($html, 'UTF-8');
+            $dompdf->setPaper('letter', 'portrait');
+            $dompdf->render();
+            $dompdf->stream('Informe_Ejecutivo_' . $dateFrom . '_a_' . $dateTo . '.pdf', ['Attachment' => false]);
+            exit;
+        }
+
+        header('Content-Type: text/html; charset=utf-8');
+        echo $html;
+        exit;
+    }
+
+    private function logoDataUri(): ?string
+    {
+        $path = \App\Models\Setting::get('logo_path');
+        if (!$path) return null;
+        $file = BASE_PATH . '/public' . $path;
+        if (!is_file($file)) return null;
+        $mime = mime_content_type($file) ?: 'image/png';
+        if ($mime === 'image/svg+xml') return null;
+        return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($file));
+    }
 }
