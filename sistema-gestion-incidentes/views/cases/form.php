@@ -8,8 +8,20 @@ $isEdit = !empty($case);
 $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
 ?>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<?php if ($isEdit && in_array($case['status'], ['pendiente_aprobacion', 'cerrado'], true)): ?>
+  <div class="alert alert-warning">
+    <i class="bi bi-lock"></i> Este caso ya esta <strong><?= $case['status'] === 'cerrado' ? 'cerrado' : 'pendiente de aprobacion' ?></strong>.
+    Para guardar cambios necesita confirmar con su <strong>PIN de seguridad</strong> (configurado en "Mi Perfil").
+  </div>
+<?php endif; ?>
 <form method="post" action="<?= H::url($action) ?>" id="caseForm" enctype="multipart/form-data">
   <?= Csrf::field() ?>
+  <?php if ($isEdit && in_array($case['status'], ['pendiente_aprobacion', 'cerrado'], true)): ?>
+    <div class="mb-3" style="max-width:220px;">
+      <label class="form-label small fw-semibold">PIN de Seguridad *</label>
+      <input type="password" name="unlock_pin" class="form-control" inputmode="numeric" pattern="\d{4,6}" required autocomplete="off">
+    </div>
+  <?php endif; ?>
 
   <ul class="nav nav-pills mb-3 flex-wrap gap-1" id="caseTabs" role="tablist">
     <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-general" type="button">Informacion General</button></li>

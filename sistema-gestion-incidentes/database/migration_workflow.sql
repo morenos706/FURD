@@ -104,3 +104,11 @@ CREATE TABLE IF NOT EXISTS case_attachments (
 -- propia, catalogo list_vehiculos) en el que se desplazo.
 -- ---------------------------------------------------------------------
 ALTER TABLE case_firefighters ADD COLUMN IF NOT EXISTS vehicle_value VARCHAR(190) DEFAULT NULL AFTER role;
+
+-- ---------------------------------------------------------------------
+-- PIN de seguridad (segunda clave para acciones sensibles: firmar,
+-- aprobar, editar un caso ya firmado/cerrado) y firma digital guardada
+-- en el perfil de cada usuario.
+-- ---------------------------------------------------------------------
+ALTER TABLE users ADD COLUMN IF NOT EXISTS security_pin_hash VARCHAR(255) DEFAULT NULL AFTER password_hash;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS signature_path VARCHAR(255) DEFAULT NULL AFTER security_pin_hash;

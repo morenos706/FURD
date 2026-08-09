@@ -159,22 +159,33 @@ $canApprove = Auth::can('case.approve') && $case['status'] === 'pendiente_aproba
       </form>
       <?php endif; ?>
 
+      <?php $hasPin = !empty($currentUser['security_pin_hash']); $hasSavedSignature = !empty($currentUser['signature_path']); ?>
       <?php if ($canSignThis): ?>
       <button type="button" class="btn btn-sm btn-danger w-100 mb-2" data-bs-toggle="collapse" data-bs-target="#signPanel"><i class="bi bi-pen"></i> Firmar Caso</button>
       <div class="collapse" id="signPanel">
         <div class="border rounded p-2 mb-3">
+          <?php if (!$hasPin): ?>
+            <div class="alert alert-warning small py-2">Configure su PIN de seguridad en <a href="<?= H::url('/profile') ?>">Mi Perfil</a> antes de firmar.</div>
+          <?php endif; ?>
           <ul class="nav nav-tabs nav-tabs-sm small mb-2" id="signMethodTabs">
-            <li class="nav-item"><button type="button" class="nav-link active" data-sign-tab="dibujo">Dibujar</button></li>
+            <?php if ($hasSavedSignature): ?><li class="nav-item"><button type="button" class="nav-link active" data-sign-tab="perfil">Mi Firma</button></li><?php endif; ?>
+            <li class="nav-item"><button type="button" class="nav-link <?= $hasSavedSignature ? '' : 'active' ?>" data-sign-tab="dibujo">Dibujar</button></li>
             <li class="nav-item"><button type="button" class="nav-link" data-sign-tab="foto">Subir Foto</button></li>
             <li class="nav-item"><button type="button" class="nav-link" data-sign-tab="codigo">Codigo</button></li>
           </ul>
 
           <form action="<?= H::url('/cases/' . $case['id'] . '/sign') ?>" method="post" enctype="multipart/form-data" id="signForm">
             <?= Csrf::field() ?>
-            <input type="hidden" name="sign_method" id="signMethodInput" value="dibujo">
+            <input type="hidden" name="sign_method" id="signMethodInput" value="<?= $hasSavedSignature ? 'perfil' : 'dibujo' ?>">
             <input type="hidden" name="signature_data" id="signatureDataInput">
 
-            <div data-sign-pane="dibujo">
+            <?php if ($hasSavedSignature): ?>
+            <div data-sign-pane="perfil">
+              <img src="<?= H::url('/profile/' . $currentUser['id'] . '/signature-file') ?>" alt="Mi firma" style="max-height:90px;border:1px solid #dee2e6;border-radius:.375rem;padding:4px;background:#fff;">
+              <div class="form-text">Se va a usar la firma guardada en su perfil.</div>
+            </div>
+            <?php endif; ?>
+            <div data-sign-pane="dibujo" <?= $hasSavedSignature ? 'style="display:none;"' : '' ?>>
               <canvas id="signatureCanvas" width="280" height="140" style="border:1px solid #ced4da;border-radius:.375rem;touch-action:none;background:#fff;"></canvas>
               <div class="mt-1"><button type="button" class="btn btn-sm btn-outline-secondary" id="clearSignatureBtn">Limpiar</button></div>
             </div>
@@ -188,16 +199,29 @@ $canApprove = Auth::can('case.approve') && $case['status'] === 'pendiente_aproba
               <div class="form-text">Confirmacion en pantalla (esta version no envia SMS/correo).</div>
             </div>
 
-            <button type="submit" class="btn btn-sm btn-danger w-100 mt-2"><i class="bi bi-check2-circle"></i> Confirmar Firma</button>
+            <div class="mt-2">
+              <label class="form-label small fw-semibold">PIN de Seguridad *</label>
+              <input type="password" name="security_pin" class="form-control form-control-sm" inputmode="numeric" pattern="\d{4,6}" required autocomplete="off" <?= $hasPin ? '' : 'disabled' ?>>
+            </div>
+
+            <button type="submit" class="btn btn-sm btn-danger w-100 mt-2" <?= $hasPin ? '' : 'disabled' ?>><i class="bi bi-check2-circle"></i> Confirmar Firma</button>
           </form>
         </div>
       </div>
       <?php endif; ?>
 
       <?php if ($canApprove): ?>
+      <?php $adminHasPin = !empty($currentUser['security_pin_hash']); ?>
       <form action="<?= H::url('/cases/' . $case['id'] . '/approve') ?>" method="post" data-confirm="¿Aprobar y cerrar el caso <?= H::e($case['case_number']) ?>?">
         <?= Csrf::field() ?>
-        <button class="btn btn-success w-100" type="submit"><i class="bi bi-check-circle"></i> Aprobar y Cerrar (Subcomandancia)</button>
+        <?php if (!$adminHasPin): ?>
+          <div class="alert alert-warning small py-2">Configure su PIN de seguridad en <a href="<?= H::url('/profile') ?>">Mi Perfil</a> antes de aprobar.</div>
+        <?php endif; ?>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">PIN de Seguridad *</label>
+          <input type="password" name="security_pin" class="form-control form-control-sm" inputmode="numeric" pattern="\d{4,6}" required autocomplete="off" <?= $adminHasPin ? '' : 'disabled' ?>>
+        </div>
+        <button class="btn btn-success w-100" type="submit" <?= $adminHasPin ? '' : 'disabled' ?>><i class="bi bi-check-circle"></i> Aprobar y Cerrar (Subcomandancia)</button>
       </form>
       <?php endif; ?>
     </div>

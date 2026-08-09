@@ -73,6 +73,26 @@ class CaseController
         View::render('cases/form', $this->formViewData($case));
     }
 
+    /**
+     * Verifica el PIN de seguridad (segunda clave) para acciones sensibles:
+     * firmar, aprobar, o editar un caso ya firmado/cerrado. Si el usuario
+     * no tiene PIN configurado o el PIN ingresado es incorrecto, redirige
+     * de vuelta con un mensaje y no continua.
+     */
+    private function requirePin(string $redirectTo, string $fieldName = 'security_pin'): void
+    {
+        $userModel = new User();
+        if (!$userModel->hasPin(Auth::id())) {
+            H::flash('danger', 'Primero configure su PIN de seguridad en "Mi Perfil" para poder realizar esta accion.');
+            H::redirect($redirectTo);
+        }
+        $pin = trim((string) H::input($fieldName));
+        if (!$pin || !$userModel->verifyPin(Auth::id(), $pin)) {
+            H::flash('danger', 'El PIN de seguridad ingresado no es correcto.');
+            H::redirect($redirectTo);
+        }
+    }
+
     private function authorizeEdit(array $case): void
     {
         if (Auth::isAdmin()) return;
@@ -157,6 +177,10 @@ class CaseController
         $case = $this->model->find((int) $id);
         if (!$case) { H::redirect('/cases'); }
         $this->authorizeEdit($case);
+
+        if (in_array($case['status'], ['pendiente_aprobacion', 'cerrado'], true)) {
+            $this->requirePin('/cases/' . $id . '/edit', 'unlock_pin');
+        }
 
         [$core, $formData, $buildings, $persons, $animals, $firefighters] = $this->extractInput();
 
@@ -285,10 +309,29 @@ class CaseController
             H::redirect('/cases/' . $id);
         }
 
+        $this->requirePin('/cases/' . $id);
+
         $method = H::input('sign_method', 'codigo');
         $signaturePath = null;
 
-        if ($method === 'dibujo' && H::input('signature_data')) {
+        if ($method === 'perfil') {
+            $userModel = new User();
+            $profile = $userModel->find(Auth::id());
+            $savedPath = $profile['signature_path'] ?? null;
+            $savedDir = BASE_PATH . '/storage/uploads/users/' . Auth::id();
+            if (!$savedPath || !is_file($savedDir . '/' . $savedPath)) {
+                H::flash('danger', 'No tiene una firma guardada en su perfil. Vaya a "Mi Perfil" para subir una.');
+                H::redirect('/cases/' . $id);
+            }
+            $ext = pathinfo($savedPath, PATHINFO_EXTENSION);
+            $dir = BASE_PATH . '/storage/uploads/cases/' . $id;
+            if (!is_dir($dir)) mkdir($dir, 0775, true);
+            $filename = 'firma_' . bin2hex(random_bytes(6)) . '.' . $ext;
+            if (copy($savedDir . '/' . $savedPath, $dir . '/' . $filename)) {
+                $this->model->addAttachment((int) $id, 'firma', $filename, 'firma_perfil.' . $ext, Auth::id());
+                $signaturePath = $filename;
+            }
+        } elseif ($method === 'dibujo' && H::input('signature_data')) {
             $data = H::input('signature_data');
             if (preg_match('/^data:image\/png;base64,(.+)$/', $data, $m)) {
                 $bytes = base64_decode($m[1]);
@@ -351,6 +394,8 @@ class CaseController
             H::flash('danger', 'Este caso no esta pendiente de aprobacion.');
             H::redirect('/cases/' . $id);
         }
+
+        $this->requirePin('/cases/' . $id);
 
         $this->model->approve((int) $id, Auth::id());
         H::flash('success', 'Caso aprobado y cerrado.');
@@ -448,6 +493,7 @@ class CaseController
             'censoFiles' => $this->model->getAttachments((int) $id, 'censo'),
             'signatureFiles' => $this->model->getAttachments((int) $id, 'firma'),
             'bomberos' => (new User())->allByRole('bombero'),
+            'currentUser' => (new User())->find(Auth::id()),
             'history' => CaseHistory::forCase((int) $id),
             'sections' => require BASE_PATH . '/config/form_sections.php',
         ]);

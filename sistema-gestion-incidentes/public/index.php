@@ -12,6 +12,7 @@ use App\Controllers\UserController;
 use App\Controllers\AuditController;
 use App\Controllers\SettingsController;
 use App\Controllers\AnalyticsController;
+use App\Controllers\ProfileController;
 
 $router = new Router();
 
@@ -49,6 +50,12 @@ $router->post('/cases/{id}/assign', [new CaseController(), 'assign']);
 $router->post('/cases/{id}/sign', [new CaseController(), 'sign']);
 $router->get('/cases/{id}/sign-code', [new CaseController(), 'signCode']);
 $router->post('/cases/{id}/approve', [new CaseController(), 'approve']);
+
+// Perfil (firma digital guardada, PIN de seguridad)
+$router->get('/profile', [new ProfileController(), 'show']);
+$router->post('/profile/signature', [new ProfileController(), 'uploadSignature']);
+$router->get('/profile/{userId}/signature-file', [new ProfileController(), 'signatureFile']);
+$router->post('/profile/pin', [new ProfileController(), 'setPin']);
 
 // Reportes
 $router->get('/reports', [new ReportController(), 'index']);

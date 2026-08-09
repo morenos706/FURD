@@ -111,4 +111,35 @@ class User
         $stmt->execute(['code' => $roleCode]);
         return $stmt->fetchAll();
     }
+
+    // -----------------------------------------------------------------
+    // PIN de seguridad (segunda clave para acciones sensibles) y
+    // firma digital guardada en el perfil del usuario.
+    // -----------------------------------------------------------------
+    public function setSecurityPin(int $id, string $pin): void
+    {
+        $stmt = $this->db->prepare('UPDATE users SET security_pin_hash = :h WHERE id = :id');
+        $stmt->execute(['h' => password_hash($pin, PASSWORD_DEFAULT), 'id' => $id]);
+    }
+
+    public function verifyPin(int $id, string $pin): bool
+    {
+        $stmt = $this->db->prepare('SELECT security_pin_hash FROM users WHERE id = :id');
+        $stmt->execute(['id' => $id]);
+        $hash = $stmt->fetchColumn();
+        return $hash && password_verify($pin, $hash);
+    }
+
+    public function hasPin(int $id): bool
+    {
+        $stmt = $this->db->prepare('SELECT security_pin_hash FROM users WHERE id = :id');
+        $stmt->execute(['id' => $id]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    public function setSignaturePath(int $id, ?string $path): void
+    {
+        $stmt = $this->db->prepare('UPDATE users SET signature_path = :p WHERE id = :id');
+        $stmt->execute(['p' => $path, 'id' => $id]);
+    }
 }

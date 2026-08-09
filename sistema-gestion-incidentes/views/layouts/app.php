@@ -18,6 +18,7 @@ $menu = [
     ['key' => 'users', 'label' => 'Usuarios', 'icon' => 'users', 'href' => '/users', 'ability' => 'admin_only'],
     ['key' => 'audit', 'label' => 'Auditoria', 'icon' => 'shield-check', 'href' => '/audit', 'ability' => 'admin_only'],
     ['key' => 'settings', 'label' => 'Configuracion', 'icon' => 'settings', 'href' => '/settings', 'ability' => 'admin_only'],
+    ['key' => 'profile', 'label' => 'Mi Perfil', 'icon' => 'person-badge', 'href' => '/profile', 'ability' => 'logged_in'],
 ];
 ?>
 <!DOCTYPE html>
@@ -44,7 +45,8 @@ $menu = [
     <nav class="sidebar-nav">
       <?php foreach ($menu as $item):
           if ($item['ability'] === 'admin_only' && !Auth::isAdmin()) continue;
-          if ($item['ability'] !== 'admin_only' && !Auth::can($item['ability'])) continue;
+          if ($item['ability'] === 'logged_in') { /* visible para cualquier usuario logueado */ }
+          elseif (!Auth::can($item['ability'])) continue;
       ?>
         <a href="<?= H::url($item['href']) ?>" class="nav-link <?= $active === $item['key'] ? 'active' : '' ?>">
           <i class="bi bi-<?= H::e($item['icon']) ?>"></i>
