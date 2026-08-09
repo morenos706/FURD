@@ -24,7 +24,7 @@ class FormRenderer
             ),
             'date' => sprintf('<input type="date" class="form-control" id="%s" name="%s" value="%s">', $id, $inputName, Helpers::e((string) $value)),
             'time' => sprintf('<input type="time" class="form-control" id="%s" name="%s" value="%s">', $id, $inputName, Helpers::e((string) $value)),
-            'dateTime' => sprintf('<input type="datetime-local" class="form-control" id="%s" name="%s" value="%s">', $id, $inputName, Helpers::e((string) $value)),
+            'dateTime' => sprintf('<input type="datetime-local" class="form-control" id="%s" name="%s" value="%s">', $id, $inputName, Helpers::e(self::normalizeDateTime((string) $value))),
             'geopoint' => sprintf('<input type="text" class="form-control" id="%s" name="%s" value="%s" placeholder="lat, lng">', $id, $inputName, Helpers::e((string) $value)),
             'image', 'file' => sprintf('<input type="text" class="form-control" id="%s" name="%s" value="%s" placeholder="Ruta / referencia del archivo adjunto">', $id, $inputName, Helpers::e((string) $value)),
             default => sprintf(
@@ -49,6 +49,14 @@ class FormRenderer
             {$hint}
         </div>
         HTML;
+    }
+
+    /** Normaliza cualquier fecha/hora guardada al formato exacto que exige <input type="datetime-local"> (YYYY-MM-DDTHH:MM). */
+    private static function normalizeDateTime(string $value): string
+    {
+        if ($value === '') return '';
+        $ts = strtotime($value);
+        return $ts ? date('Y-m-d\TH:i', $ts) : '';
     }
 
     private static function selectOne(string $id, string $name, ?string $list, $value): string

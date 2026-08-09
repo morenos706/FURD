@@ -50,9 +50,13 @@ $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
               <?php endforeach; ?>
             </select>
           </div>
-          <div class="col-md-4 mb-3">
+          <div class="col-md-3 mb-3">
             <label class="form-label small fw-semibold">Fecha del Incidente *</label>
-            <input type="date" name="incident_date" class="form-control" required value="<?= H::e($case['incident_date'] ?? date('Y-m-d')) ?>">
+            <input type="date" name="incident_date" id="incidentDate" class="form-control" required value="<?= H::e($case['incident_date'] ?? date('Y-m-d')) ?>">
+          </div>
+          <div class="col-md-1 mb-3">
+            <label class="form-label small fw-semibold">Hora *</label>
+            <input type="time" id="incidentTimeHelper" class="form-control" required value="<?= H::e(date('H:i', strtotime($formData['fecha_y_hora_del_incidente'] ?? 'now'))) ?>">
           </div>
           <div class="col-md-4 mb-3">
             <label class="form-label small fw-semibold">Comandante del Incidente</label>
@@ -103,7 +107,11 @@ $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
         <div class="row">
           <div class="col-md-6 mb-3">
             <label class="form-label small fw-semibold">Direccion del Incidente *</label>
-            <input type="text" name="address" class="form-control" required value="<?= H::e($case['address'] ?? '') ?>">
+            <div class="input-group">
+              <input type="text" name="address" id="incidentAddress" class="form-control" required value="<?= H::e($case['address'] ?? '') ?>">
+              <button type="button" class="btn btn-outline-secondary" id="geocodeAddressBtn" title="Buscar en el mapa"><i class="bi bi-search"></i></button>
+            </div>
+            <div class="form-text" id="geocodeStatus"></div>
           </div>
           <div class="col-md-3 mb-3">
             <label class="form-label small fw-semibold">Comuna</label>
@@ -499,6 +507,41 @@ document.addEventListener("DOMContentLoaded", function () {
       });
 
       setTimeout(function () { map.invalidateSize(); }, 300);
+
+      // ---- Geocodificar la Direccion del Incidente automaticamente ----
+      var addressInput = document.getElementById("incidentAddress");
+      var geocodeBtn = document.getElementById("geocodeAddressBtn");
+      var geocodeStatus = document.getElementById("geocodeStatus");
+
+      function geocodeAddress() {
+        var query = (addressInput.value || "").trim();
+        if (!query) return;
+        if (geocodeStatus) geocodeStatus.textContent = "Buscando en el mapa...";
+        var url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q="
+            + encodeURIComponent(query + ", Itagui, Antioquia, Colombia");
+        fetch(url, { headers: { "Accept": "application/json" } })
+          .then(function (r) { return r.json(); })
+          .then(function (results) {
+            if (results && results[0]) {
+              var lat = parseFloat(results[0].lat), lng = parseFloat(results[0].lon);
+              map.setView([lat, lng], 17);
+              placeMarker(lat, lng);
+              if (geocodeStatus) geocodeStatus.textContent = "Ubicacion encontrada. Puede ajustar el marcador arrastrandolo si no es exacta.";
+            } else if (geocodeStatus) {
+              geocodeStatus.textContent = "No se encontro esa direccion en el mapa. Ubique el punto manualmente.";
+            }
+          })
+          .catch(function () {
+            if (geocodeStatus) geocodeStatus.textContent = "No se pudo buscar la direccion (sin conexion).";
+          });
+      }
+
+      if (addressInput) {
+        addressInput.addEventListener("blur", geocodeAddress);
+      }
+      if (geocodeBtn) {
+        geocodeBtn.addEventListener("click", geocodeAddress);
+      }
     }
   } catch (err) {
     console.error("Error inicializando el mapa:", err);
@@ -552,6 +595,49 @@ document.addEventListener("DOMContentLoaded", function () {
     window.refreshFirefighterVehicleOptions();
   } catch (err) {
     console.error("Error en vinculo bombero-vehiculo:", err);
+  }
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+  try {
+    var addressInput = document.getElementById("incidentAddress");
+    var lugarInput = document.getElementById("fd_lugar_del_incidente");
+    if (addressInput && lugarInput) {
+      function syncLugar() { lugarInput.value = addressInput.value; }
+      lugarInput.readOnly = true;
+      lugarInput.classList.add("bg-light");
+      lugarInput.title = "Se completa automaticamente con la Direccion del Incidente";
+      lugarInput.tabIndex = -1;
+      syncLugar();
+      addressInput.addEventListener("input", syncLugar);
+    }
+  } catch (err) {
+    console.error("Error sincronizando Lugar del Incidente:", err);
+  }
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+  try {
+    var dateInput = document.getElementById("incidentDate");
+    var timeInput = document.getElementById("incidentTimeHelper");
+    var sciDateTimeInput = document.getElementById("fd_fecha_y_hora_del_incidente");
+    if (dateInput && timeInput && sciDateTimeInput) {
+      function syncFechaHora() {
+        if (dateInput.value && timeInput.value) {
+          sciDateTimeInput.value = dateInput.value + "T" + timeInput.value;
+        }
+      }
+      sciDateTimeInput.readOnly = true;
+      sciDateTimeInput.classList.add("bg-light");
+      sciDateTimeInput.title = "Se completa automaticamente con la Fecha del Incidente y la Hora";
+      sciDateTimeInput.style.pointerEvents = "none";
+      sciDateTimeInput.tabIndex = -1;
+      syncFechaHora();
+      dateInput.addEventListener("change", syncFechaHora);
+      timeInput.addEventListener("change", syncFechaHora);
+    }
+  } catch (err) {
+    console.error("Error sincronizando Fecha y Hora del Incidente:", err);
   }
 });
 </script>';
