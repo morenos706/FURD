@@ -435,87 +435,104 @@ $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
 
 <?php $extraScripts = '<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+// Cada funcion corre en su propio listener y con try/catch: si el mapa
+// falla (por red, CDN, etc.) no debe romper la cascada de Clase de
+// Servicio ni el vinculo bombero-vehiculo.
+
 document.addEventListener("DOMContentLoaded", function () {
-  // ---- Mapa de ubicacion del incidente ----
-  var mapEl = document.getElementById("incidentMap");
-  if (mapEl && window.L) {
-    var latInput = document.getElementById("mapLatitude");
-    var lngInput = document.getElementById("mapLongitude");
-    var startLat = parseFloat(mapEl.dataset.lat) || 4.5709;
-    var startLng = parseFloat(mapEl.dataset.lng) || -74.2973;
-    var startZoom = (mapEl.dataset.lat && mapEl.dataset.lng) ? 15 : 6;
+  try {
+    var mapEl = document.getElementById("incidentMap");
+    if (mapEl && window.L) {
+      var latInput = document.getElementById("mapLatitude");
+      var lngInput = document.getElementById("mapLongitude");
+      var startLat = parseFloat(mapEl.dataset.lat) || 4.5709;
+      var startLng = parseFloat(mapEl.dataset.lng) || -74.2973;
+      var startZoom = (mapEl.dataset.lat && mapEl.dataset.lng) ? 15 : 6;
 
-    var map = L.map("incidentMap").setView([startLat, startLng], startZoom);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap",
-      maxZoom: 19
-    }).addTo(map);
+      var map = L.map("incidentMap").setView([startLat, startLng], startZoom);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap",
+        maxZoom: 19
+      }).addTo(map);
 
-    var marker = null;
-    function placeMarker(lat, lng) {
-      if (marker) { marker.setLatLng([lat, lng]); }
-      else {
-        marker = L.marker([lat, lng], { draggable: true }).addTo(map);
-        marker.on("dragend", function () {
-          var pos = marker.getLatLng();
-          latInput.value = pos.lat.toFixed(6);
-          lngInput.value = pos.lng.toFixed(6);
-        });
+      var marker = null;
+      function placeMarker(lat, lng) {
+        if (marker) { marker.setLatLng([lat, lng]); }
+        else {
+          marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+          marker.on("dragend", function () {
+            var pos = marker.getLatLng();
+            latInput.value = pos.lat.toFixed(6);
+            lngInput.value = pos.lng.toFixed(6);
+          });
+        }
+        latInput.value = lat.toFixed(6);
+        lngInput.value = lng.toFixed(6);
       }
-      latInput.value = lat.toFixed(6);
-      lngInput.value = lng.toFixed(6);
-    }
 
-    if (mapEl.dataset.lat && mapEl.dataset.lng) {
-      placeMarker(startLat, startLng);
-    }
+      if (mapEl.dataset.lat && mapEl.dataset.lng) {
+        placeMarker(startLat, startLng);
+      }
 
-    map.on("click", function (e) {
-      placeMarker(e.latlng.lat, e.latlng.lng);
-    });
-
-    setTimeout(function () { map.invalidateSize(); }, 300);
-  }
-
-  // ---- Clase de Servicio dependiente del Servicio seleccionado ----
-  var serviceSelect = document.getElementById("serviceTypeSelect");
-  function toggleClaseServicio() {
-    if (!serviceSelect) return;
-    var value = serviceSelect.value || "";
-    var match = value.match(/^(\\d+)\\./);
-    var num = match ? match[1] : null;
-    document.querySelectorAll(".clase-servicio-field").forEach(function (field) {
-      field.style.display = (num && field.dataset.claseServicio === num) ? "" : "none";
-    });
-  }
-  if (serviceSelect) {
-    serviceSelect.addEventListener("change", toggleClaseServicio);
-    toggleClaseServicio();
-  }
-
-  // ---- Vinculo bombero <-> vehiculo ----
-  window.refreshFirefighterVehicleOptions = function () {
-    var vehicles = [];
-    document.querySelectorAll(".vehiculo-check:checked").forEach(function (cb) {
-      vehicles.push({ value: cb.value, label: cb.dataset.label || cb.value });
-    });
-    document.querySelectorAll(".firefighter-vehicle-select").forEach(function (sel) {
-      var current = sel.dataset.selected !== undefined && sel.dataset.selected !== "" ? sel.dataset.selected : sel.value;
-      sel.innerHTML = "<option value=\\"\\">-- Vehiculo --</option>";
-      vehicles.forEach(function (v) {
-        var opt = document.createElement("option");
-        opt.value = v.value;
-        opt.textContent = v.label;
-        if (v.value === current) opt.selected = true;
-        sel.appendChild(opt);
+      map.on("click", function (e) {
+        placeMarker(e.latlng.lat, e.latlng.lng);
       });
-      sel.removeAttribute("data-selected");
+
+      setTimeout(function () { map.invalidateSize(); }, 300);
+    }
+  } catch (err) {
+    console.error("Error inicializando el mapa:", err);
+  }
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+  try {
+    var serviceSelect = document.getElementById("serviceTypeSelect");
+    function toggleClaseServicio() {
+      if (!serviceSelect) return;
+      var value = serviceSelect.value || "";
+      var match = value.match(/^(\\d+)\\./);
+      var num = match ? match[1] : null;
+      document.querySelectorAll(".clase-servicio-field").forEach(function (field) {
+        field.style.display = (num && field.dataset.claseServicio === num) ? "" : "none";
+      });
+    }
+    if (serviceSelect) {
+      serviceSelect.addEventListener("change", toggleClaseServicio);
+      toggleClaseServicio();
+    }
+  } catch (err) {
+    console.error("Error en cascada de Clase de Servicio:", err);
+  }
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+  try {
+    window.refreshFirefighterVehicleOptions = function () {
+      var vehicles = [];
+      document.querySelectorAll(".vehiculo-check:checked").forEach(function (cb) {
+        vehicles.push({ value: cb.value, label: cb.dataset.label || cb.value });
+      });
+      document.querySelectorAll(".firefighter-vehicle-select").forEach(function (sel) {
+        var current = sel.dataset.selected !== undefined && sel.dataset.selected !== "" ? sel.dataset.selected : sel.value;
+        sel.innerHTML = "<option value=\\"\\">-- Vehiculo --</option>";
+        vehicles.forEach(function (v) {
+          var opt = document.createElement("option");
+          opt.value = v.value;
+          opt.textContent = v.label;
+          if (v.value === current) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        sel.removeAttribute("data-selected");
+      });
+    };
+    document.querySelectorAll(".vehiculo-check").forEach(function (cb) {
+      cb.addEventListener("change", window.refreshFirefighterVehicleOptions);
     });
-  };
-  document.querySelectorAll(".vehiculo-check").forEach(function (cb) {
-    cb.addEventListener("change", window.refreshFirefighterVehicleOptions);
-  });
-  window.refreshFirefighterVehicleOptions();
+    window.refreshFirefighterVehicleOptions();
+  } catch (err) {
+    console.error("Error en vinculo bombero-vehiculo:", err);
+  }
 });
 </script>';
 ?>
