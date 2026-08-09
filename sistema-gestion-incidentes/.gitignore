@@ -1,0 +1,4 @@
+/vendor/
+.env
+/storage/*.log
+/storage/exports/
