@@ -67,26 +67,24 @@ $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
               <?php endforeach; ?>
             </select>
           </div>
+          <?php
+            $autoTimeFields = [
+              'report_time' => 'Hora de Reporte',
+              'departure_time' => 'Hora de Salida',
+              'arrival_time' => 'Hora de Llegada',
+              'closure_time' => 'Hora de Cierre',
+              'station_time' => 'Hora en Estacion',
+            ];
+          ?>
+          <?php foreach ($autoTimeFields as $fieldName => $fieldLabel): ?>
           <div class="col-md-2 mb-3">
-            <label class="form-label small fw-semibold">Hora de Reporte</label>
-            <input type="time" name="report_time" class="form-control" value="<?= H::e($case['report_time'] ?? '') ?>">
+            <label class="form-label small fw-semibold"><?= $fieldLabel ?></label>
+            <div class="input-group">
+              <input type="time" name="<?= $fieldName ?>" class="form-control auto-time-input" readonly style="pointer-events:none;background:#f8f9fa;" value="<?= H::e($case[$fieldName] ?? '') ?>">
+              <button type="button" class="btn btn-outline-secondary auto-time-btn" data-target="<?= $fieldName ?>" title="Registrar hora actual del sistema"><i class="bi bi-clock-history"></i></button>
+            </div>
           </div>
-          <div class="col-md-2 mb-3">
-            <label class="form-label small fw-semibold">Hora de Salida</label>
-            <input type="time" name="departure_time" class="form-control" value="<?= H::e($case['departure_time'] ?? '') ?>">
-          </div>
-          <div class="col-md-2 mb-3">
-            <label class="form-label small fw-semibold">Hora de Llegada</label>
-            <input type="time" name="arrival_time" class="form-control" value="<?= H::e($case['arrival_time'] ?? '') ?>">
-          </div>
-          <div class="col-md-2 mb-3">
-            <label class="form-label small fw-semibold">Hora de Cierre</label>
-            <input type="time" name="closure_time" class="form-control" value="<?= H::e($case['closure_time'] ?? '') ?>">
-          </div>
-          <div class="col-md-2 mb-3">
-            <label class="form-label small fw-semibold">Hora en Estacion</label>
-            <input type="time" name="station_time" class="form-control" value="<?= H::e($case['station_time'] ?? '') ?>">
-          </div>
+          <?php endforeach; ?>
           <div class="col-md-3 mb-3">
             <label class="form-label small fw-semibold">Prioridad</label>
             <select name="priority" class="form-select">
@@ -613,6 +611,23 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   } catch (err) {
     console.error("Error sincronizando Lugar del Incidente:", err);
+  }
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+  try {
+    document.querySelectorAll(".auto-time-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var input = document.querySelector(\'input[name="\' + btn.dataset.target + \'"]\');
+        if (!input) return;
+        var now = new Date();
+        var hh = String(now.getHours()).padStart(2, "0");
+        var mm = String(now.getMinutes()).padStart(2, "0");
+        input.value = hh + ":" + mm;
+      });
+    });
+  } catch (err) {
+    console.error("Error en botones de hora automatica:", err);
   }
 });
 

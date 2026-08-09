@@ -601,4 +601,45 @@ class CaseRecord
         $stmt->execute(array_merge($p1, $p2, $p3, $p4));
         return $stmt->fetch() ?: [];
     }
+
+    /**
+     * Tiempo de respuesta (minutos) entre Hora de Salida y Hora de Llegada.
+     * Solo tiene en cuenta casos donde ambas horas quedaron registradas.
+     */
+    public function responseTimeStats(array $filters = []): array
+    {
+        [$whereSql, $params] = $this->buildFilters($filters);
+        $diffExpr = "TIME_TO_SEC(TIMEDIFF(
+                        IF(arrival_time < departure_time, ADDTIME(arrival_time, '24:00:00'), arrival_time),
+                        departure_time)) / 60";
+        $sql = "SELECT
+                    COUNT(*) AS con_datos,
+                    AVG($diffExpr) AS avg_minutes,
+                    MIN($diffExpr) AS min_minutes,
+                    MAX($diffExpr) AS max_minutes
+                FROM cases c
+                WHERE $whereSql AND departure_time IS NOT NULL AND arrival_time IS NOT NULL";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetch() ?: [];
+    }
+
+    /** Tiempo de respuesta promedio (minutos) agrupado por tipo de servicio. */
+    public function responseTimeByService(array $filters = [], int $limit = 8): array
+    {
+        [$whereSql, $params] = $this->buildFilters($filters);
+        $diffExpr = "TIME_TO_SEC(TIMEDIFF(
+                        IF(arrival_time < departure_time, ADDTIME(arrival_time, '24:00:00'), arrival_time),
+                        departure_time)) / 60";
+        $sql = "SELECT c.service_type AS label, COUNT(*) AS total, AVG($diffExpr) AS avg_minutes
+                FROM cases c
+                WHERE $whereSql AND departure_time IS NOT NULL AND arrival_time IS NOT NULL
+                    AND c.service_type IS NOT NULL AND c.service_type <> ''
+                GROUP BY c.service_type ORDER BY total DESC LIMIT :limit";
+        $stmt = $this->db->prepare($sql);
+        foreach ($params as $k => $v) $stmt->bindValue($k, $v);
+        $stmt->bindValue('limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
 }

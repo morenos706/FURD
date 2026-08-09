@@ -616,8 +616,13 @@ class CaseController
             if ($match) $signaturePhoto = $toDataUri($match[0]);
         }
 
+        $mapImageUri = ($case['latitude'] && $case['longitude'])
+            ? \App\Helpers\StaticMap::dataUri((float) $case['latitude'], (float) $case['longitude'])
+            : null;
+
         $data = [
             'case' => $case,
+            'mapImageUri' => $mapImageUri,
             'buildings' => $this->model->getBuildings((int) $id),
             'persons' => $this->model->getPersons((int) $id),
             'animals' => $this->model->getAnimals((int) $id),

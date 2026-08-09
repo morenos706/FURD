@@ -58,6 +58,9 @@ $fd = $case['form_data_decoded'] ?? [];
     <tr><td class="label">Hora Llegada</td><td><?= H::e($case['arrival_time'] ?? '-') ?></td>
         <td class="label">Hora Cierre</td><td><?= H::e($case['closure_time'] ?? '-') ?></td></tr>
     <tr><td class="label">Direccion</td><td colspan="3"><?= H::e($case['address'] ?? '-') ?></td></tr>
+    <?php if (!empty($mapImageUri)): ?>
+    <tr><td colspan="4" style="padding-top:6px;"><img src="<?= $mapImageUri ?>" style="width:100%;max-height:260px;border:1px solid #ddd;"></td></tr>
+    <?php endif; ?>
     <tr><td class="label">Comuna / Barrio</td><td><?= H::e($case['comuna'] ?? '-') ?> / <?= H::e($case['barrio'] ?? '-') ?></td>
         <td class="label">Responsable</td><td><?= H::e($case['responsible_name'] ?? '-') ?></td></tr>
     <tr><td class="label">Descripcion</td><td colspan="3"><?= nl2br(H::e($case['description'] ?? '-')) ?></td></tr>

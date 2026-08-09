@@ -132,6 +132,47 @@ $statusLabels = ['abierto' => 'Abierto', 'asignado' => 'Asignado', 'en_atencion'
   </div>
 </div>
 
+<?php
+  $fmtMin = function ($m) {
+      if ($m === null) return '-';
+      $total = (int) round((float) $m);
+      return $total >= 60 ? (intdiv($total, 60) . 'h ' . ($total % 60) . 'min') : ($total . ' min');
+  };
+?>
+<div class="row g-3 mb-3">
+  <div class="col-lg-4">
+    <div class="kpi-card h-100">
+      <div class="kpi-icon" style="background:#0891b2;"><i class="bi bi-stopwatch"></i></div>
+      <div>
+        <div class="kpi-value"><?= $fmtMin($responseTime['avg_minutes'] ?? null) ?></div>
+        <div class="kpi-label">Tiempo de Respuesta Promedio (Salida &rarr; Llegada)</div>
+        <?php if (!empty($responseTime['con_datos'])): ?>
+          <div class="text-muted small">Min: <?= $fmtMin($responseTime['min_minutes']) ?> · Max: <?= $fmtMin($responseTime['max_minutes']) ?> · <?= (int)$responseTime['con_datos'] ?> caso(s) con datos</div>
+        <?php else: ?>
+          <div class="text-muted small">Todavia no hay casos con Hora de Salida y Hora de Llegada registradas.</div>
+        <?php endif; ?>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="section-card h-100">
+      <div class="section-title">Tiempo de Respuesta Promedio por Servicio</div>
+      <?php if (empty($responseTimeByService)): ?>
+        <div class="empty-state"><i class="bi bi-stopwatch"></i>Sin datos suficientes todavia.</div>
+      <?php else: ?>
+        <div class="table-responsive"><table class="table table-sm mb-0">
+          <thead><tr><th>Servicio</th><th>Casos</th><th>Promedio</th></tr></thead>
+          <tbody>
+          <?php foreach ($responseTimeByService as $r): ?>
+            <tr><td><?= H::e(Catalog::label('list_servicio', $r['label']) ?? $r['label']) ?></td><td><?= (int)$r['total'] ?></td><td><?= $fmtMin($r['avg_minutes']) ?></td></tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table></div>
+      <?php endif; ?>
+    </div>
+  </div>
+</div>
+
 <div class="row g-3 mb-3">
   <div class="col-12">
     <div class="section-card">

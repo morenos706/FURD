@@ -24,6 +24,8 @@ class DashboardController
         $byComuna = $model->countByField('comuna', $filters, 10);
         $recent = $model->paginate($filters, 1, 8)['data'];
         $heatPoints = $model->coordinates($filters);
+        $responseTime = $model->responseTimeStats($filters);
+        $responseTimeByService = $model->responseTimeByService($filters, 8);
 
         View::render('dashboard/index', [
             'pageTitle' => 'Dashboard',
@@ -37,6 +39,8 @@ class DashboardController
             'byComuna' => $byComuna,
             'recent' => $recent,
             'heatPoints' => $heatPoints,
+            'responseTime' => $responseTime,
+            'responseTimeByService' => $responseTimeByService,
             'filters' => $filters,
             'services' => Catalog::items('list_servicio'),
         ]);
@@ -56,6 +60,8 @@ class DashboardController
             'byStatus' => $model->countByField('status', $filters, 5),
             'byComuna' => $model->countByField('comuna', $filters, 10),
             'heatPoints' => $model->coordinates($filters),
+            'responseTime' => $model->responseTimeStats($filters),
+            'responseTimeByService' => $model->responseTimeByService($filters, 8),
         ]);
     }
 
