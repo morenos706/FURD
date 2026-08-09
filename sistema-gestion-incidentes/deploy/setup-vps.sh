@@ -92,6 +92,7 @@ a2ensite furd >/dev/null
 systemctl reload apache2
 
 echo "==> Permisos de storage..."
+mkdir -p "$APP_DIR/storage"
 chown -R www-data:www-data "$APP_DIR/storage"
 chmod -R 775 "$APP_DIR/storage"
 
