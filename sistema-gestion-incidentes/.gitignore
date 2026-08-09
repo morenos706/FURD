@@ -2,3 +2,4 @@
 .env
 /storage/*.log
 /storage/exports/
+/public/install_once.php

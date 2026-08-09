@@ -1,0 +1,13 @@
+RewriteEngine On
+
+# Si la peticion es un archivo o carpeta real (css, js, imagenes), serviralo directo
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Todo lo demas pasa por el front controller
+RewriteRule ^ index.php [L]
+
+<FilesMatch "\.(env|sql|log)$">
+    Require all denied
+</FilesMatch>
