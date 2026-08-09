@@ -36,7 +36,12 @@ $menu = [
 <div class="app-shell">
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
-      <i class="bi bi-fire"></i>
+      <?php $logoPath = Setting::get('logo_path'); ?>
+      <?php if ($logoPath): ?>
+        <img src="<?= H::url($logoPath) ?>" alt="Logo" class="sidebar-logo">
+      <?php else: ?>
+        <i class="bi bi-fire"></i>
+      <?php endif; ?>
       <div class="brand-text">
         <div class="brand-name"><?= H::e($systemName) ?></div>
         <div class="brand-sub"><?= H::e($entityName) ?></div>

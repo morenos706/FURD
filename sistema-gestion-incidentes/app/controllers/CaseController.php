@@ -204,6 +204,18 @@ class CaseController
         H::redirect('/cases/' . $id);
     }
 
+    /** Convierte el logo institucional configurado en Settings a data URI para incrustarlo en el PDF. */
+    private function logoDataUri(): ?string
+    {
+        $path = Setting::get('logo_path');
+        if (!$path) return null;
+        $file = BASE_PATH . '/public' . $path;
+        if (!is_file($file)) return null;
+        $mime = mime_content_type($file) ?: 'image/png';
+        if ($mime === 'image/svg+xml') return null; // Dompdf no soporta bien SVG embebido
+        return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($file));
+    }
+
     /** Guarda las fotos de evidencia y el censo anexo subidos con el formulario. */
     private function storeUploads(int $caseId): void
     {
@@ -578,6 +590,7 @@ class CaseController
             'sections' => require BASE_PATH . '/config/form_sections.php',
             'entityName' => Setting::get('entity_name', 'Cuerpo de Bomberos'),
             'systemName' => Setting::get('system_name', 'Sistema de Gestion de Incidentes'),
+            'logoDataUri' => $this->logoDataUri(),
             'generatedBy' => Auth::user()['full_name'] ?? '',
             'generatedAt' => date('d/m/Y H:i'),
         ];

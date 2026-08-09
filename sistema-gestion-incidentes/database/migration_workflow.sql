@@ -126,3 +126,10 @@ CREATE TABLE IF NOT EXISTS case_sci_objectives (
     CONSTRAINT fk_sci_objectives_case FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
     INDEX idx_sci_objectives_case (case_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------
+-- Logo institucional y fondo de pantalla del login
+-- ---------------------------------------------------------------------
+INSERT INTO system_settings (setting_key, setting_value) VALUES
+('login_bg_path', '')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;

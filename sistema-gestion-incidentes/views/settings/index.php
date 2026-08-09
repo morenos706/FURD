@@ -3,7 +3,7 @@
   <div class="col-lg-7">
     <div class="section-card mb-3">
       <div class="form-section-title">Datos Institucionales y Apariencia</div>
-      <form method="post" action="<?= H::url('/settings') ?>">
+      <form method="post" action="<?= H::url('/settings') ?>" enctype="multipart/form-data">
         <?= Csrf::field() ?>
         <div class="row">
           <div class="col-md-6 mb-3">
@@ -25,6 +25,20 @@
           <div class="col-md-3 mb-3">
             <label class="form-label small fw-semibold">Zona Horaria</label>
             <input type="text" name="timezone" class="form-control" value="<?= H::e($settings['timezone'] ?? 'America/Bogota') ?>">
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label small fw-semibold">Logo (aparece en el menu, el login y el PDF)</label>
+            <?php if (!empty($settings['logo_path'])): ?>
+              <div class="mb-2"><img src="<?= H::url($settings['logo_path']) ?>" alt="Logo" style="max-height:60px;background:#fff;border:1px solid #dee2e6;border-radius:.375rem;padding:4px;"></div>
+            <?php endif; ?>
+            <input type="file" name="logo_file" class="form-control" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label small fw-semibold">Fondo de Pantalla del Login</label>
+            <?php if (!empty($settings['login_bg_path'])): ?>
+              <div class="mb-2"><img src="<?= H::url($settings['login_bg_path']) ?>" alt="Fondo login" style="max-height:60px;border:1px solid #dee2e6;border-radius:.375rem;"></div>
+            <?php endif; ?>
+            <input type="file" name="login_bg_file" class="form-control" accept="image/png,image/jpeg,image/webp">
           </div>
         </div>
         <button type="submit" class="btn btn-danger">Guardar Cambios</button>

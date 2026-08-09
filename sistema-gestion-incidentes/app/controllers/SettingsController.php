@@ -44,9 +44,40 @@ class SettingsController
             Setting::set($f, H::input($f, ''));
         }
 
+        $this->handleImageUpload('logo_file', 'logo', 'logo_path');
+        $this->handleImageUpload('login_bg_file', 'login_bg', 'login_bg_path');
+
         AuditLog::record(Auth::id(), 'ACTUALIZAR_CONFIGURACION', 'settings', null, null, null);
         H::flash('success', 'Configuracion actualizada correctamente.');
         H::redirect('/settings');
+    }
+
+    /** Sube una imagen de marca (logo / fondo de login) a public/uploads/branding y guarda la ruta publica. */
+    private function handleImageUpload(string $fileField, string $baseName, string $settingKey): void
+    {
+        if (empty($_FILES[$fileField]) || $_FILES[$fileField]['error'] !== UPLOAD_ERR_OK) {
+            return;
+        }
+        $mime = mime_content_type($_FILES[$fileField]['tmp_name']) ?: '';
+        $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/svg+xml' => 'svg'];
+        if (!isset($allowed[$mime])) {
+            H::flash('danger', 'Formato de imagen no soportado. Use JPG, PNG, WEBP o SVG.');
+            return;
+        }
+
+        $dir = BASE_PATH . '/public/uploads/branding';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+        $filename = $baseName . '_' . bin2hex(random_bytes(4)) . '.' . $allowed[$mime];
+        if (move_uploaded_file($_FILES[$fileField]['tmp_name'], $dir . '/' . $filename)) {
+            $old = Setting::get($settingKey);
+            if ($old) {
+                $oldFile = BASE_PATH . '/public' . $old;
+                if (is_file($oldFile)) unlink($oldFile);
+            }
+            Setting::set($settingKey, '/uploads/branding/' . $filename);
+        }
     }
 
     public function catalogs(): void

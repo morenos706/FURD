@@ -31,6 +31,9 @@ $fd = $case['form_data_decoded'] ?? [];
   <div class="header">
     <table>
       <tr>
+        <?php if (!empty($logoDataUri)): ?>
+        <td style="width:60px;"><img src="<?= $logoDataUri ?>" style="max-height:50px;max-width:55px;"></td>
+        <?php endif; ?>
         <td>
           <div class="entity-name"><?= H::e($entityName) ?></div>
           <div class="system-name"><?= H::e($systemName) ?></div>

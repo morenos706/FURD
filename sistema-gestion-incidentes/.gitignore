@@ -3,4 +3,5 @@
 /storage/*.log
 /storage/exports/
 /storage/uploads/
+/public/uploads/
 /public/install_once.php

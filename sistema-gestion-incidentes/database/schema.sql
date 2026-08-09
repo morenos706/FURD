@@ -309,6 +309,7 @@ INSERT INTO system_settings (setting_key, setting_value) VALUES
 ('entity_name', 'Cuerpo de Bomberos'),
 ('entity_nit', ''),
 ('logo_path', ''),
+('login_bg_path', ''),
 ('primary_color', '#c0392b'),
 ('timezone', 'America/Bogota')
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
