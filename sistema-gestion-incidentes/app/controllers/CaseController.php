@@ -417,6 +417,25 @@ class CaseController
         H::redirect('/cases/' . $id);
     }
 
+    public function reopen(string $id): void
+    {
+        Auth::requireAbility('case.reopen');
+        Csrf::verifyRequest();
+        $case = $this->model->find((int) $id);
+        if (!$case) { H::redirect('/cases'); }
+
+        if (!in_array($case['status'], ['pendiente_aprobacion', 'cerrado'], true)) {
+            H::flash('danger', 'Este caso no esta cerrado ni pendiente de aprobacion.');
+            H::redirect('/cases/' . $id);
+        }
+
+        $this->requirePin('/cases/' . $id);
+
+        $this->model->reopen((int) $id, Auth::id());
+        H::flash('success', 'Caso reabierto correctamente.');
+        H::redirect('/cases/' . $id);
+    }
+
     private function validate(array $core): array
     {
         $errors = [];

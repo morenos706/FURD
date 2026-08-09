@@ -103,9 +103,9 @@ class Auth
             // Diligencia y firma los casos que tiene asignados.
             'bombero' => ['case.view', 'case.edit_own', 'case.sign', 'stats.view', 'search'],
             // Supervisa el turno: puede asignar/reasignar y sacar reportes.
-            'coordinador_turno' => ['case.view', 'case.assign', 'case.report', 'export.own', 'stats.view', 'search'],
+            'coordinador_turno' => ['case.view', 'case.assign', 'case.report', 'case.reopen', 'export.own', 'stats.view', 'search'],
             // Aprueba el cierre de casos ya firmados.
-            'subcomandancia' => ['case.view', 'case.approve', 'case.report', 'export.own', 'stats.view', 'search'],
+            'subcomandancia' => ['case.view', 'case.approve', 'case.report', 'case.reopen', 'export.own', 'stats.view', 'search'],
         ];
         $allowed = $matrix[$role] ?? [];
         return in_array('*', $allowed, true) || in_array($ability, $allowed, true);

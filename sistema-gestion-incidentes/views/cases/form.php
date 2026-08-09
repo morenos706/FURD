@@ -32,7 +32,6 @@ $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
     <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-persons" type="button">Personas Afectadas</button></li>
     <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-animals" type="button">Animales Afectados</button></li>
     <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-personnel" type="button">Personal y Equipos</button></li>
-    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-gestion" type="button">Gestion del Caso</button></li>
   </ul>
 
   <div class="tab-content">
@@ -84,6 +83,18 @@ $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
             <label class="form-label small fw-semibold">Hora en Estacion</label>
             <input type="time" name="station_time" class="form-control" value="<?= H::e($case['station_time'] ?? '') ?>">
           </div>
+          <div class="col-md-3 mb-3">
+            <label class="form-label small fw-semibold">Prioridad</label>
+            <select name="priority" class="form-select">
+              <?php foreach ($priorities as $code => $label): ?>
+                <option value="<?= $code ?>" <?= ($case['priority'] ?? 'media') === $code ? 'selected' : '' ?>><?= $label ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <?php if ($isEdit): ?>
+          <input type="hidden" name="status" value="<?= H::e($case['status'] ?? 'abierto') ?>">
+          <input type="hidden" name="responsible_user_id" value="<?= H::e($case['responsible_user_id'] ?? '') ?>">
+          <?php endif; ?>
         </div>
       </div>
 
@@ -431,40 +442,6 @@ $action = $isEdit ? '/cases/' . $case['id'] : '/cases';
           </select>
           <button type="button" class="btn btn-sm btn-outline-secondary" onclick="removeRepeatRow(this)"><i class="bi bi-x"></i></button>
         </div></template>
-      </div>
-    </div>
-
-    <!-- ============ GESTION DEL CASO (campos propios del sistema) ============ -->
-    <div class="tab-pane fade" id="tab-gestion">
-      <div class="section-card">
-        <div class="form-section-title">Estado y Seguimiento</div>
-        <div class="row">
-          <div class="col-md-4 mb-3">
-            <label class="form-label small fw-semibold">Estado</label>
-            <select name="status" class="form-select">
-              <?php foreach ($statuses as $s): ?>
-                <option value="<?= H::e($s['code']) ?>" <?= ($case['status'] ?? 'abierto') === $s['code'] ? 'selected' : '' ?>><?= H::e($s['label']) ?></option>
-              <?php endforeach; ?>
-            </select>
-          </div>
-          <div class="col-md-4 mb-3">
-            <label class="form-label small fw-semibold">Prioridad</label>
-            <select name="priority" class="form-select">
-              <?php foreach ($priorities as $code => $label): ?>
-                <option value="<?= $code ?>" <?= ($case['priority'] ?? 'media') === $code ? 'selected' : '' ?>><?= $label ?></option>
-              <?php endforeach; ?>
-            </select>
-          </div>
-          <div class="col-md-4 mb-3">
-            <label class="form-label small fw-semibold">Responsable Asignado</label>
-            <select name="responsible_user_id" class="form-select">
-              <option value="">-- Sin asignar --</option>
-              <?php foreach ($users as $u): ?>
-                <option value="<?= $u['id'] ?>" <?= ((string)($case['responsible_user_id'] ?? '')) === (string)$u['id'] ? 'selected' : '' ?>><?= H::e($u['full_name']) ?></option>
-              <?php endforeach; ?>
-            </select>
-          </div>
-        </div>
       </div>
     </div>
 

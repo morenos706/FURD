@@ -391,6 +391,22 @@ class CaseRecord
         CaseHistory::log($caseId, $approvedBy, 'APROBADO', 'Caso aprobado por Subcomandancia y cerrado automaticamente', null);
     }
 
+    /** Reabre un caso cerrado o pendiente de aprobacion: vuelve al flujo (asignado/abierto) y limpia firma/aprobacion. */
+    public function reopen(int $caseId, int $userId): void
+    {
+        $case = $this->find($caseId);
+        if (!$case) return;
+        $newStatus = $case['assigned_to'] ? 'asignado' : 'abierto';
+        $stmt = $this->db->prepare(
+            "UPDATE cases SET status = :status, closed_at = NULL,
+                signed_by = NULL, signed_at = NULL, sign_method = NULL, signature_path = NULL,
+                approved_by = NULL, approved_at = NULL
+             WHERE id = :id"
+        );
+        $stmt->execute(['status' => $newStatus, 'id' => $caseId]);
+        CaseHistory::log($caseId, $userId, 'REABIERTO', 'Caso reabierto, firma y aprobacion anteriores fueron limpiadas', null);
+    }
+
     // -----------------------------------------------------------------
     // Adjuntos (fotos de evidencia, censo, firma)
     // -----------------------------------------------------------------

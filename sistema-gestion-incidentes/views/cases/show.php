@@ -12,6 +12,7 @@ $canAssign = Auth::can('case.assign');
 $isAssignedToMe = Auth::isAdmin() || (int) ($case['assigned_to'] ?? 0) === Auth::id();
 $canSignThis = Auth::can('case.sign') && $isAssignedToMe && in_array($case['status'], ['asignado', 'en_atencion'], true);
 $canApprove = Auth::can('case.approve') && $case['status'] === 'pendiente_aprobacion';
+$canReopen = Auth::can('case.reopen') && in_array($case['status'], ['pendiente_aprobacion', 'cerrado'], true);
 ?>
 <?php if ($case['latitude'] && $case['longitude']): ?><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><?php endif; ?>
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
@@ -235,6 +236,24 @@ $canApprove = Auth::can('case.approve') && $case['status'] === 'pendiente_aproba
         </div>
         <button class="btn btn-success w-100" type="submit" <?= $adminHasPin ? '' : 'disabled' ?>><i class="bi bi-check-circle"></i> Aprobar y Cerrar (Subcomandancia)</button>
       </form>
+      <?php endif; ?>
+
+      <?php if ($canReopen): ?>
+      <?php $reopenHasPin = !empty($currentUser['security_pin_hash']); ?>
+      <button type="button" class="btn btn-sm btn-outline-warning w-100 mt-2" data-bs-toggle="collapse" data-bs-target="#reopenPanel"><i class="bi bi-arrow-counterclockwise"></i> Reabrir Caso</button>
+      <div class="collapse mt-2" id="reopenPanel">
+        <form action="<?= H::url('/cases/' . $case['id'] . '/reopen') ?>" method="post" data-confirm="¿Reabrir el caso <?= H::e($case['case_number']) ?>? Se va a limpiar la firma y aprobacion actuales.">
+          <?= Csrf::field() ?>
+          <?php if (!$reopenHasPin): ?>
+            <div class="alert alert-warning small py-2">Configure su PIN de seguridad en <a href="<?= H::url('/profile') ?>">Mi Perfil</a> antes de reabrir.</div>
+          <?php endif; ?>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold">PIN de Seguridad *</label>
+            <input type="password" name="security_pin" class="form-control form-control-sm" inputmode="numeric" pattern="\d{4,6}" required autocomplete="off" <?= $reopenHasPin ? '' : 'disabled' ?>>
+          </div>
+          <button class="btn btn-warning w-100" type="submit" <?= $reopenHasPin ? '' : 'disabled' ?>><i class="bi bi-arrow-counterclockwise"></i> Confirmar Reapertura</button>
+        </form>
+      </div>
       <?php endif; ?>
     </div>
 
